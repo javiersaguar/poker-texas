@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a1611">
+<meta name="description" content="Gestor de fichas y apuestas para jugar al póker Texas Hold'em con hasta 4 jugadores.">
+<title>Póker · Gestor de fichas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --felt:#123a2e; --felt-2:#0d2b22; --rail:#1c110a; --rail-2:#2c1a0d;
+    --bg:#0a1611; --ink:#f3ece0; --muted:#8fa79b; --muted-2:#6a8378;
+    --gold:#d8a94e; --gold-dim:#9a7a35; --line:rgba(216,169,78,.22);
+    --panel:#0f231c; --panel-2:#0b1b16;
+    --c20:#22b6cc; --c20e:rgba(255,255,255,.85);
+    --c50:#37b24d; --c50e:rgba(255,255,255,.85);
+    --c100:#e0433a; --c100e:rgba(255,255,255,.85);
+    --c200:#7857e6; --c200e:rgba(255,255,255,.85);
+    --c500:#17171b; --c500e:#d8a94e;
+    --shadow:0 10px 30px rgba(0,0,0,.45);
+    --bar-h:0px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #143a2d 0%, transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    min-height:100vh; min-height:100dvh; overflow-x:hidden;
+  }
+  .wrap{max-width:960px;margin:0 auto;padding:14px 14px 220px;}
+
+  /* ---------- Top bar ---------- */
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 2px 16px}
+  .brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+  .brand h1{
+    font-family:"Fraunces",Georgia,serif;font-weight:900;font-size:clamp(22px,6vw,34px);
+    margin:0;letter-spacing:.5px;line-height:1;color:var(--ink);
+  }
+  .brand .dot{color:var(--gold)}
+  .brand small{font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;white-space:nowrap}
+  .topbtns{display:flex;gap:8px;flex-shrink:0}
+
+  button{font-family:inherit;cursor:pointer;border:none;color:inherit}
+  .btn{
+    background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    padding:9px 13px;border-radius:11px;font-size:13px;font-weight:600;
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    transition:.15s transform,.15s background,.15s border-color;
+  }
+  .btn:hover{background:#14332a;border-color:var(--gold-dim)}
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{background:transparent}
+  .btn.gold{background:linear-gradient(180deg,#e6b95d,#c99333);color:#241606;border-color:#e6c375;font-weight:800}
+  .btn.gold:hover{filter:brightness(1.05);background:linear-gradient(180deg,#eec066,#cf9a38)}
+  .btn.danger{color:#ffb3ad;border-color:rgba(224,67,58,.4)}
+  .btn.danger:hover{background:rgba(224,67,58,.14)}
+  .btn:disabled{opacity:.38;cursor:not-allowed}
+  .btn.sm{padding:6px 10px;font-size:12px;border-radius:9px}
+
+  /* ---------- Table ---------- */
+  .table{
+    position:relative;border-radius:30px;padding:16px;
+    background:
+      radial-gradient(120% 120% at 50% 30%, var(--felt) 0%, var(--felt-2) 78%);
+    box-shadow:inset 0 0 0 10px var(--rail-2), inset 0 0 0 13px #3d2612,
+               inset 0 0 60px rgba(0,0,0,.5), var(--shadow);
+    display:grid;gap:12px;
+    grid-template-columns:1fr 1fr;
+    grid-template-areas:
+      "p0 p1"
+      "pot pot"
+      "p2 p3";
+  }
+  @media(min-width:720px){
+    .table{
+      grid-template-columns:1fr 1.15fr 1fr;
+      grid-template-areas:
+        ". p0 ."
+        "p1 pot p2"
+        ". p3 .";
+      padding:26px;gap:16px;
+    }
+  }
+
+  /* ---------- Pot ---------- */
+  .pot{grid-area:pot;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:8px 0;min-height:120px;position:relative}
+  .pot-label{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);opacity:.9;text-align:center}
+  .pot-value{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(30px,9vw,48px);line-height:1;
+    color:var(--ink);text-shadow:0 2px 10px rgba(0,0,0,.5);margin-top:2px}
+  .street{display:flex;gap:7px;margin-top:9px;align-items:center}
+  .st-dot{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.16);transition:.2s}
+  .st-dot.on{background:var(--gold-dim)}
+  .st-dot.now{background:var(--gold);box-shadow:0 0 9px var(--gold)}
+  .pot-stack{display:flex;gap:2px;margin-top:8px;height:26px;align-items:flex-end;flex-wrap:wrap;justify-content:center;max-width:220px}
+  .pot-stack .pc{width:20px;height:20px;border-radius:50%;border:2px dashed rgba(255,255,255,.6);flex:0 0 auto}
+  .to-match{font-size:11px;color:var(--muted);margin-top:7px;letter-spacing:.5px;text-align:center}
+  .to-match b{color:var(--ink)}
+
+  /* ---------- Player seat ---------- */
+  .seat{background:linear-gradient(180deg,var(--panel),var(--panel-2));
+    border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:11px 11px 12px;
+    box-shadow:0 6px 16px rgba(0,0,0,.3);transition:.2s;position:relative;min-width:0}
+  .seat[data-pos="0"]{grid-area:p0}.seat[data-pos="1"]{grid-area:p1}
+  .seat[data-pos="2"]{grid-area:p2}.seat[data-pos="3"]{grid-area:p3}
+  .seat.active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 0 24px rgba(216,169,78,.35)}
+  .seat.folded{opacity:.42;filter:grayscale(.6)}
+  .seat-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px}
+  .seat-name{display:flex;align-items:center;gap:7px;font-weight:800;font-size:14px;min-width:0}
+  .seat-name .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dealer{width:22px;height:22px;border-radius:50%;background:linear-gradient(180deg,#f0e2c0,#c9a24e);
+    color:#3a2708;font-weight:800;font-size:12px;display:grid;place-items:center;flex:0 0 auto;
+    box-shadow:0 1px 4px rgba(0,0,0,.5);font-family:"Fraunces",serif}
+  .seat-total{font-weight:800;font-size:15px;color:var(--gold)}
+  .tag{font-size:10px;padding:2px 7px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;font-weight:700}
+  .tag.fold{background:rgba(224,67,58,.16);color:#ff9a92}
+  .tag.allin{background:rgba(216,169,78,.16);color:var(--gold)}
+  .tag.bet{background:rgba(255,255,255,.08);color:var(--ink)}
+  .tag.out{background:rgba(255,255,255,.06);color:var(--muted)}
+  .mini-chips{display:flex;flex-wrap:wrap;gap:4px 8px}
+  .mini{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
+  .mini .md{width:15px;height:15px;border-radius:50%;border:2px dashed rgba(255,255,255,.55);flex:0 0 auto}
+  .mini b{color:var(--ink);font-weight:600}
+  .mini.zero{opacity:.3}
+  .seat-bet{margin-top:8px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between;min-height:18px}
+  .seat-bet b{color:var(--ink)}
+
+  /* ---------- Chip discs ---------- */
+  .chip{
+    position:relative;border-radius:50%;flex:0 0 auto;
+    background:repeating-conic-gradient(var(--e) 0deg 9deg, var(--c) 9deg 27deg);
+    box-shadow:inset 0 0 0 2px rgba(0,0,0,.28), 0 4px 8px rgba(0,0,0,.4);
+    display:grid;place-items:center;
+  }
+  .chip::before{content:"";position:absolute;inset:15%;border-radius:50%;
+    background:radial-gradient(circle at 50% 34%, color-mix(in srgb, var(--c) 72%, #fff), var(--c));
+    box-shadow:inset 0 0 0 2px var(--e)}
+  .chip .v{position:relative;z-index:1;font-weight:800;line-height:1;color:var(--tc);text-align:center}
+  .chip.d20 {--c:var(--c20); --e:var(--c20e);  --tc:#04252a}
+  .chip.d50 {--c:var(--c50); --e:var(--c50e);  --tc:#06280e}
+  .chip.d100{--c:var(--c100);--e:var(--c100e); --tc:#fff}
+  .chip.d200{--c:var(--c200);--e:var(--c200e); --tc:#fff}
+  .chip.d500{--c:var(--c500);--e:var(--c500e); --tc:#f2e2bf}
+
+  /* ---------- Action bar ---------- */
+  .action{position:fixed;left:0;right:0;bottom:0;z-index:40;
+    background:linear-gradient(180deg,rgba(10,22,17,.4),rgba(10,22,17,.96) 30%);
+    backdrop-filter:blur(10px);border-top:1px solid var(--line);
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
+  .action-in{max-width:960px;margin:0 auto}
+  .action-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;flex-wrap:wrap}
+  .who{font-weight:800;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .who .pin{width:10px;height:10px;border-radius:50%;background:var(--gold);box-shadow:0 0 10px var(--gold);flex:0 0 auto}
+  .street-mini{font-size:10px;color:var(--gold);border:1px solid var(--line);padding:2px 8px;border-radius:20px;
+    letter-spacing:1px;text-transform:uppercase;font-weight:700}
+  .status{font-size:12px;color:var(--muted)}
+  .status b{color:var(--ink)}
+  .status .up{color:var(--gold)}
+  .status .need{color:#ff9a92}
+  .status .ok{color:#7fe0a0}
+  .picker{display:flex;gap:9px;justify-content:center;padding:2px 0 10px;flex-wrap:wrap}
+  .pick{display:flex;flex-direction:column;align-items:center;gap:3px;background:none;padding:0}
+  .pick .chip{width:54px;height:54px}
+  .pick .chip .v{font-size:13px}
+  .pick small{font-size:10px;color:var(--muted)}
+  .pick:disabled{opacity:.28}
+  .pick:not(:disabled):active .chip{transform:scale(.9)}
+  .staged{display:flex;align-items:center;gap:8px;justify-content:center;min-height:34px;margin:2px 0 10px;flex-wrap:wrap}
+  .staged .lbl{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+  .staged .sc{width:26px;height:26px;margin-left:-9px;border-radius:50%;border:2px dashed rgba(255,255,255,.6);position:relative}
+  .staged .lbl + .sc{margin-left:0}
+  .staged .sum{font-weight:800;color:var(--gold);font-size:15px;margin-left:6px}
+  .btns{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center}
+  .btns .primary{font-size:15px;padding:13px;justify-content:center}
+  .row-min{display:flex;gap:8px;justify-content:center;margin-bottom:8px;flex-wrap:wrap}
+
+  @media(max-width:380px){
+    .pick .chip{width:46px;height:46px}
+    .pick .chip .v{font-size:12px}
+    .picker{gap:6px}
+    .btns .primary{font-size:14px;padding:12px}
+  }
+  @media(min-width:720px){
+    .pick .chip{width:60px;height:60px}
+    .pick .chip .v{font-size:14px}
+  }
+
+  /* ---------- Setup ---------- */
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);
+    border-radius:18px;padding:16px;box-shadow:var(--shadow)}
+  .card h2{font-family:"Fraunces",serif;font-weight:600;margin:0 0 4px;font-size:20px}
+  .card p.sub{margin:0 0 16px;color:var(--muted);font-size:13px;line-height:1.5}
+  .players-setup{display:grid;gap:10px;grid-template-columns:1fr;margin-bottom:16px}
+  @media(min-width:620px){.players-setup{grid-template-columns:1fr 1fr}}
+  .psetup{background:var(--panel-2);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:10px 11px}
+  .psetup .idx{font-size:11px;color:var(--muted);letter-spacing:1px}
+  .psetup input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--line);
+    color:var(--ink);font-family:"Fraunces",serif;font-size:18px;font-weight:600;padding:4px 0 6px;margin-top:2px;outline:none}
+  .psetup input:focus{border-color:var(--gold)}
+  .chips-setup{margin-top:16px}
+  .chips-setup .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .chips-setup .hdr b{font-weight:700;font-size:13px}
+  .chips-setup .hdr span{color:var(--gold);font-weight:800;font-size:14px}
+  .crow{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid rgba(255,255,255,.05)}
+  .crow .chip{width:40px;height:40px}.crow .chip .v{font-size:11px}
+  .crow .cname{flex:1;font-size:13px;color:var(--muted)}
+  .stepper{display:flex;align-items:center;gap:0;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .stepper button{width:38px;height:36px;font-size:19px;font-weight:700;background:transparent;color:var(--ink)}
+  .stepper button:active{background:#14332a}
+  .stepper .val{min-width:42px;text-align:center;font-weight:700;font-size:15px}
+  .note{font-size:12px;color:var(--muted-2);line-height:1.5;margin-top:14px}
+
+  /* ---------- Modal ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(4,10,8,.72);backdrop-filter:blur(4px);z-index:60;
+    display:grid;place-items:center;padding:18px}
+  .modal{background:linear-gradient(180deg,#12281f,#0c1d17);border:1px solid var(--line);border-radius:18px;
+    padding:18px;max-width:440px;width:100%;box-shadow:var(--shadow);max-height:86vh;overflow:auto}
+  .modal h3{font-family:"Fraunces",serif;margin:0 0 4px;font-size:20px;font-weight:600}
+  .modal p{color:var(--muted);font-size:13px;margin:0 0 16px;line-height:1.5}
+  .win-list{display:grid;gap:8px;margin-bottom:16px}
+  .win-opt{display:flex;align-items:center;gap:11px;padding:11px;border-radius:12px;border:1px solid rgba(255,255,255,.08);
+    background:var(--panel-2);cursor:pointer;transition:.15s}
+  .win-opt:hover{border-color:var(--gold-dim)}
+  .win-opt.sel{border-color:var(--gold);background:rgba(216,169,78,.1)}
+  .win-opt .box{width:20px;height:20px;border-radius:6px;border:2px solid var(--muted);flex:0 0 auto;display:grid;place-items:center;font-size:13px;color:#241606}
+  .win-opt.sel .box{background:var(--gold);border-color:var(--gold)}
+  .win-opt .wn{flex:1;font-weight:700}
+  .win-opt .wt{color:var(--gold);font-weight:800}
+  .break-list{display:grid;gap:9px;margin-bottom:14px}
+  .break-row{display:flex;align-items:center;gap:11px;background:var(--panel-2);border:1px solid rgba(255,255,255,.07);
+    border-radius:12px;padding:9px 11px}
+  .break-row .chip{width:36px;height:36px}.break-row .chip .v{font-size:10px}
+  .break-row .txt{flex:1;font-size:13px;color:var(--muted)}
+  .break-row .txt b{color:var(--ink);display:block;font-size:14px}
+  .modal-btns{display:flex;gap:9px;justify-content:flex-end}
+  .toast{position:fixed;left:50%;bottom:calc(var(--bar-h,150px) + 24px);transform:translateX(-50%);z-index:80;
+    background:#12281f;border:1px solid var(--gold);color:var(--ink);padding:11px 18px;border-radius:12px;
+    font-size:13px;font-weight:600;box-shadow:var(--shadow);opacity:0;transition:.25s;pointer-events:none;
+    max-width:calc(100vw - 32px);text-align:center}
+  .toast.show{opacity:1}
+  .hidden{display:none!important}
+
+  @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <h1>Póker<span class="dot">.</span></h1>
+      <small>fichas &amp; apuestas</small>
+    </div>
+    <div class="topbtns" id="topbtns"></div>
+  </div>
+  <div id="app"></div>
+</div>
+<div id="action-root"></div>
+<div id="modal-root"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ============ CONFIG ============ */
+const DENOMS = [20,50,100,200,500];            // en céntimos
+const CHIP = {
+  20 :{cls:"d20", label:"0,20"},
+  50 :{cls:"d50", label:"0,50"},
+  100:{cls:"d100",label:"1"},
+  200:{cls:"d200",label:"2"},
+  500:{cls:"d500",label:"5"},
+};
+const CHIPCOL = {20:"#22b6cc",50:"#37b24d",100:"#e0433a",200:"#7857e6",500:"#17171b"};
+const DEFAULT_STACK = {20:10, 50:6, 100:5, 200:3, 500:2};   // 26,00 € por jugador
+const DEFAULT_NAMES = ["Jugador 1","Jugador 2","Jugador 3","Jugador 4"];
+const STREETS = ["Pre-flop","Flop","Turn","River"];
+
+/* ============ STATE ============ */
+let S = null;
+const emptyChips = () => ({20:0,50:0,100:0,200:0,500:0});
+const cloneChips = c => ({20:c[20],50:c[50],100:c[100],200:c[200],500:c[500]});
+const value = c => DENOMS.reduce((s,d)=>s+d*c[d],0);
+const countChips = c => DENOMS.reduce((s,d)=>s+c[d],0);
+const fmt = cents => (cents/100).toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+
+const N = () => S.players.length;
+const inHand = p => !p.folded && !p.out;      // sigue vivo en la mano
+const canAct = p => inHand(p) && !p.allIn;    // puede realizar una acción
+
+function freshGame(names, stack){
+  return {
+    screen:"game",
+    players: names.map(n=>({name:n, chips:cloneChips(stack), folded:false, allIn:false, out:false, roundBet:0})),
+    pot: emptyChips(),
+    dealer: 0,
+    turn: 1,
+    currentBet: 0,
+    staged: emptyChips(),
+    stagedOrder: [],
+    acted: [],
+    roundClosed: false,
+    hand: 1,
+    street: 0,        // 0=preflop 1=flop 2=turn 3=river
+    over: false,
+  };
+}
+function setupState(){
+  return {
+    screen:"setup",
+    names:[...DEFAULT_NAMES],
+    stack:cloneChips(DEFAULT_STACK),
+  };
+}
+
+/* ============ PERSISTENCE ============ */
+const KEY="poker_fichas_v2";
+async function save(){
+  try{
+    const str=JSON.stringify(S);
+    if(window.storage && typeof window.storage.set==="function"){ await window.storage.set(KEY,str,false); }
+    else{ localStorage.setItem(KEY,str); }
+  }catch(e){/* memoria solo */}
+}
+async function load(){
+  try{
+    if(window.storage && typeof window.storage.get==="function"){
+      const r=await window.storage.get(KEY,false); return r? JSON.parse(r.value): null;
+    }
+    const r=localStorage.getItem(KEY); return r? JSON.parse(r): null;
+  }catch(e){ return null; }
+}
+
+/* ============ CHIP HTML ============ */
+function chipHTML(d, size){
+  const c=CHIP[d];
+  const s = size? `style="width:${size}px;height:${size}px"`:"";
+  return `<span class="chip ${c.cls}" ${s}><span class="v">${c.label}</span></span>`;
+}
+
+/* ============ RENDER: SETUP ============ */
+function renderSetup(){
+  const total = value(S.stack);
+  document.getElementById("topbtns").innerHTML="";
+  document.getElementById("action-root").innerHTML="";   // limpia barra de juego si venimos de una partida
+  const app=document.getElementById("app");
+  app.innerHTML = `
+    <div class="card">
+      <h2>Nueva partida</h2>
+      <p class="sub">Cuatro jugadores en un mismo dispositivo. La app lleva las fichas, las apuestas y el bote — vosotros ponéis las cartas. Pon los nombres y las fichas de salida de cada jugador.</p>
+      <div class="players-setup">
+        ${S.names.map((n,i)=>`
+          <div class="psetup">
+            <div class="idx">JUGADOR ${i+1}</div>
+            <input data-name="${i}" value="${escapeHtml(n)}" maxlength="16" placeholder="Nombre">
+          </div>`).join("")}
+      </div>
+      <div class="chips-setup">
+        <div class="hdr"><b>Fichas por jugador</b><span id="stackTotal">${fmt(total)}</span></div>
+        ${DENOMS.map(d=>`
+          <div class="crow">
+            ${chipHTML(d,40)}
+            <div class="cname">${CHIP[d].label} €</div>
+            <div class="stepper">
+              <button data-step="${d}" data-dir="-1" aria-label="Quitar ficha de ${CHIP[d].label}">−</button>
+              <div class="val" id="cv${d}">${S.stack[d]}</div>
+              <button data-step="${d}" data-dir="1" aria-label="Añadir ficha de ${CHIP[d].label}">+</button>
+            </div>
+          </div>`).join("")}
+      </div>
+      <p class="note">Consejo: no hace falta que cuadre con fichas reales. Cada jugador empieza con <b id="stackTotal2">${fmt(total)}</b>. Puedes cambiar fichas grandes por pequeñas durante la partida con el botón <b>Cambiar</b>.</p>
+      <div style="margin-top:18px;display:flex;justify-content:flex-end">
+        <button class="btn gold" data-action="start">Empezar partida →</button>
+      </div>
+    </div>`;
+  syncChrome();
+}
+
+/* ============ RENDER: GAME ============ */
+function seatPositions(){
+  // orden visual fijo p0..p3 = jugadores 0..3
+  return S.players.map((_,i)=>i);
+}
+function renderGame(){
+  document.getElementById("topbtns").innerHTML = `
+    <button class="btn ghost sm" data-action="new-game">Reiniciar</button>`;
+  const app=document.getElementById("app");
+  const potVal=value(S.pot);
+  const potStack = DENOMS.slice().reverse().flatMap(d=>{
+    const n=Math.min(S.pot[d],8);
+    return Array.from({length:n}).map(()=>`<span class="pc" style="background:${CHIPCOL[d]}"></span>`);
+  }).join("");
+
+  const seats = seatPositions().map(i=>{
+    const p=S.players[i];
+    const cls = ["seat"];
+    if(i===S.turn && !S.roundClosed && !S.over) cls.push("active");
+    if(p.folded || p.out) cls.push("folded");
+    let tag="";
+    if(p.out) tag=`<span class="tag out">eliminado</span>`;
+    else if(p.folded) tag=`<span class="tag fold">retirado</span>`;
+    else if(p.allIn) tag=`<span class="tag allin">all-in</span>`;
+    else if(p.roundBet>0) tag=`<span class="tag bet">apuesta ${fmt(p.roundBet)}</span>`;
+    const dealer = i===S.dealer? `<span class="dealer" title="Repartidor">D</span>`:"";
+    const mini = DENOMS.map(d=>`
+      <span class="mini ${p.chips[d]===0?"zero":""}">
+        <span class="md" style="background:${CHIPCOL[d]}"></span>${CHIP[d].label}<b>×${p.chips[d]}</b>
+      </span>`).join("");
+    return `
+      <div class="seat" data-pos="${i}">
+        <div class="seat-head">
+          <div class="seat-name">${dealer}<span class="nm">${escapeHtml(p.name)}</span></div>
+          <div class="seat-total">${fmt(value(p.chips))}</div>
+        </div>
+        <div class="mini-chips">${mini}</div>
+        <div class="seat-bet"><span>${tag||"&nbsp;"}</span></div>
+      </div>`;
+  }).join("");
+
+  let potInfo="";
+  if(S.over){ potInfo=`<div class="to-match">Partida terminada</div>`; }
+  else if(S.currentBet>0 && !S.roundClosed){ potInfo=`<div class="to-match">Apuesta a igualar: <b>${fmt(S.currentBet)}</b></div>`; }
+  else if(S.roundClosed){ potInfo=`<div class="to-match">${STREETS[S.street]} · ronda cerrada</div>`; }
+
+  const dots = STREETS.map((s,idx)=>`<span class="st-dot ${idx<=S.street?'on':''} ${idx===S.street&&!S.over?'now':''}" title="${s}"></span>`).join("");
+
+  app.innerHTML = `
+    <div class="table">
+      <div class="pot">
+        <div class="pot-label">${STREETS[S.street]} · Mano ${S.hand}</div>
+        <div class="pot-value">${fmt(potVal)}</div>
+        <div class="street">${dots}</div>
+        <div class="pot-stack">${potStack}</div>
+        ${potInfo}
+      </div>
+      ${seats}
+    </div>`;
+
+  renderAction();
+  syncChrome();
+}
+
+/* ============ RENDER: ACTION BAR ============ */
+function renderAction(){
+  const root=document.getElementById("action-root");
+
+  /* ---- fin de partida ---- */
+  if(S.over){
+    const winner=S.players.find(p=>value(p.chips)>0);
+    root.innerHTML = `
+      <div class="action"><div class="action-in">
+        <div class="action-top">
+          <div class="who"><span class="pin"></span>🏆 ${winner?escapeHtml(winner.name):"—"} gana la partida</div>
+          <div class="status">Con <b>${winner?fmt(value(winner.chips)):"—"}</b></div>
+        </div>
+        <div class="btns" style="grid-template-columns:1fr">
+          <button class="btn gold primary" data-action="new-game">Nueva partida ↻</button>
+        </div>
+      </div></div>`;
+    return;
+  }
+
+  /* ---- ronda cerrada: avanzar de calle o repartir ---- */
+  if(S.roundClosed){
+    const inHandCount = S.players.filter(inHand).length;
+    const canContinue = inHandCount>1 && S.street<3;
+    const nextName = STREETS[S.street+1] || "";
+    const isRiver = S.street>=3;
+    root.innerHTML = `
+      <div class="action"><div class="action-in">
+        <div class="action-top">
+          <div class="who"><span class="pin"></span>${STREETS[S.street]} completado</div>
+          <div class="status">Bote: <b>${fmt(value(S.pot))}</b></div>
+        </div>
+        <div class="btns" style="grid-template-columns:1fr 1fr">
+          ${canContinue
+            ? `<button class="btn primary" data-action="next-round">Ver ${nextName} →</button>`
+            : `<button class="btn primary" disabled>${isRiver?"River jugado":"Sin más calles"}</button>`}
+          <button class="btn gold primary" data-action="end-hand">${isRiver?"Showdown · repartir →":"Repartir bote →"}</button>
+        </div>
+      </div></div>`;
+    return;
+  }
+
+  /* ---- turno de un jugador ---- */
+  const p=S.players[S.turn];
+  const stagedVal=value(S.staged);
+  const finalBet=p.roundBet+stagedVal;
+  const remainingAfter = value(p.chips);                   // fichas que le quedarían (ya descontado lo staged)
+  const isAllInMove = remainingAfter===0 && (stagedVal>0);
+
+  // estado textual
+  let status="";
+  if(S.currentBet===0){
+    status = stagedVal>0? `<span class="up">Apuesta ${fmt(stagedVal)}</span>` : `Puedes pasar o abrir apuesta`;
+  } else {
+    const diff = S.currentBet - finalBet;
+    if(diff>0 && !isAllInMove) status=`Para igualar faltan <span class="need">${fmt(diff)}</span>`;
+    else if(diff>0 && isAllInMove) status=`<span class="up">All-in por ${fmt(finalBet)}</span> (call parcial)`;
+    else if(diff===0) status=`<span class="ok">Igualado</span>`;
+    else status=`<span class="up">Subes a ${fmt(finalBet)}</span> (+${fmt(-diff)})`;
+  }
+
+  // fichas staged apiladas
+  const stagedChips = DENOMS.flatMap(d=>Array.from({length:S.staged[d]}).map(()=>
+    `<span class="sc" style="background:${CHIPCOL[d]}"></span>`)).join("");
+
+  // picker de fichas
+  const picker = DENOMS.map(d=>`
+    <button class="pick" data-action="add" data-d="${d}" ${p.chips[d]===0?"disabled":""}>
+      ${chipHTML(d)}
+      <small>×${p.chips[d]}</small>
+    </button>`).join("");
+
+  // botón principal
+  let mainLabel, mainAct="confirm", mainDisabled=false, mainClass="btn gold primary";
+  if(S.currentBet===0){
+    if(stagedVal>0){ mainLabel=`Apostar ${fmt(stagedVal)}`; }
+    else { mainLabel="Pasar"; mainAct="check"; mainClass="btn primary"; }
+  } else {
+    if(finalBet>S.currentBet){ mainLabel=`Subir a ${fmt(finalBet)}`; }
+    else if(finalBet===S.currentBet){ mainLabel=`Igualar ${fmt(finalBet)}`; }
+    else if(isAllInMove){ mainLabel=`All-in ${fmt(finalBet)}`; }
+    else { mainLabel=`Te faltan ${fmt(S.currentBet-finalBet)}`; mainDisabled=true; }
+  }
+
+  const canCheck = S.currentBet===0; // pasar solo si nadie ha apostado
+  const hasStaged = stagedVal>0;
+  const canAllIn = value(p.chips)+stagedVal>0;
+
+  root.innerHTML = `
+    <div class="action"><div class="action-in">
+      <div class="action-top">
+        <div class="who"><span class="pin"></span>${escapeHtml(p.name)}<span class="street-mini">${STREETS[S.street]}</span></div>
+        <div class="status">${status}</div>
+      </div>
+      <div class="picker">${picker}</div>
+      <div class="staged">
+        <span class="lbl">Tu apuesta</span>
+        ${stagedChips || ""}
+        <span class="sum">${fmt(stagedVal)}</span>
+        ${hasStaged?`<button class="btn ghost sm" data-action="undo">Deshacer</button>`:""}
+      </div>
+      <div class="row-min">
+        <button class="btn sm" data-action="allin" ${canAllIn?"":"disabled"}>All-in (${fmt(value(p.chips)+stagedVal)})</button>
+        <button class="btn sm" data-action="change">Cambiar fichas</button>
+      </div>
+      <div class="btns">
+        <button class="btn danger" data-action="fold">Retirarse</button>
+        <button class="${mainClass}" data-action="${mainAct}" ${mainDisabled?"disabled":""}>${mainLabel}</button>
+        ${canCheck && !hasStaged ? "" : `<button class="btn" data-action="check" ${canCheck?"":"disabled"} title="Pasar">Pasar</button>`}
+      </div>
+    </div></div>`;
+}
+
+/* ============ GAME ACTIONS ============ */
+function addChip(d){
+  const p=S.players[S.turn];
+  if(p.chips[d]<=0) return;
+  p.chips[d]--; S.staged[d]++; S.stagedOrder.push(d);
+  renderAll(false);
+}
+function undo(){
+  if(S.stagedOrder.length===0) return;
+  const d=S.stagedOrder.pop();
+  S.staged[d]--; S.players[S.turn].chips[d]++;
+  renderAll(false);
+}
+function returnStaged(){ // devuelve staged a las fichas del jugador (fold/cancel)
+  const p=S.players[S.turn];
+  DENOMS.forEach(d=>{ p.chips[d]+=S.staged[d]; });
+  S.staged=emptyChips(); S.stagedOrder=[];
+}
+function clearStagedToPot(){
+  DENOMS.forEach(d=>{ S.pot[d]+=S.staged[d]; });
+  S.staged=emptyChips(); S.stagedOrder=[];
+}
+function allInStage(){
+  const p=S.players[S.turn];
+  DENOMS.forEach(d=>{ S.staged[d]+=p.chips[d]; for(let k=0;k<p.chips[d];k++)S.stagedOrder.push(d); p.chips[d]=0; });
+  renderAll(false);
+}
+function markActed(i){ if(!S.acted.includes(i)) S.acted.push(i); }
+
+function confirmBet(){
+  const p=S.players[S.turn];
+  const stagedVal=value(S.staged);
+  const finalBet=p.roundBet+stagedVal;
+  const remaining=value(p.chips);
+  if(S.currentBet===0 && stagedVal===0){ check(); return; }
+  if(finalBet < S.currentBet && remaining>0){ toast("No llega para igualar"); return; }
+
+  clearStagedToPot();
+  p.roundBet=finalBet;
+  if(remaining===0 && stagedVal>0){ p.allIn=true; }
+
+  if(finalBet>S.currentBet){            // subida / apertura
+    S.currentBet=finalBet;
+    S.acted=[S.turn];                   // reinicia: los demás deben responder
+  } else {
+    markActed(S.turn);
+  }
+  advance();
+}
+function check(){
+  if(S.currentBet!==0){ toast("Hay una apuesta: iguala o retírate"); return; }
+  returnStaged();
+  markActed(S.turn);
+  advance();
+}
+function fold(){
+  returnStaged();
+  S.players[S.turn].folded=true;
+  markActed(S.turn);
+  advance();
+}
+function allIn(){
+  const p=S.players[S.turn];
+  if(value(p.chips)+value(S.staged)<=0){ toast("Sin fichas para all-in"); return; }
+  allInStage();
+  confirmBet();
+}
+
+function nextActiveFrom(i){
+  const n=N();
+  for(let k=1;k<=n;k++){
+    const j=(i+k)%n;
+    if(canAct(S.players[j])) return j;
+  }
+  return -1;
+}
+function roundDone(){
+  const alive=S.players.filter(inHand);
+  if(alive.length<=1) return "win";
+  const actable=S.players.map((p,i)=>({p,i})).filter(o=>canAct(o.p));
+  if(actable.length===0) return "closed";               // todos all-in o retirados
+  const allMatched=actable.every(o=> S.acted.includes(o.i) && o.p.roundBet===S.currentBet);
+  return allMatched? "closed":"open";
+}
+function advance(){
+  S.staged=emptyChips(); S.stagedOrder=[];
+  const st=roundDone();
+  if(st==="win"){ autoWin(); return; }
+  if(st==="closed"){ S.roundClosed=true; renderAll(); return; }
+  let nx=nextActiveFrom(S.turn);
+  if(nx===-1){ S.roundClosed=true; renderAll(); return; }
+  S.turn=nx;
+  renderAll();
+}
+
+function nextRound(){
+  if(S.street>=3) return;              // river es la última calle de apuestas
+  S.street++;
+  S.players.forEach(p=>{ p.roundBet=0; });
+  S.currentBet=0; S.acted=[]; S.roundClosed=false; S.staged=emptyChips(); S.stagedOrder=[];
+  const first=nextActiveFrom(S.dealer);
+  if(first===-1){ S.roundClosed=true; }        // todos all-in → la calle se corre sola
+  else S.turn=first;
+  renderAll();
+}
+
+/* ---- reparto del bote ---- */
+function autoWin(){
+  const winner=S.players.findIndex(inHand);
+  const potVal=value(S.pot);
+  const name=S.players[winner].name;
+  awardTo([winner]);
+  toast(`${name} se lleva ${fmt(potVal)} (los demás se retiraron)`);
+}
+function awardTo(indices){
+  if(indices.length===1){
+    const w=S.players[indices[0]];
+    DENOMS.forEach(d=>{ w.chips[d]+=S.pot[d]; });
+  } else {
+    // reparto lo más equitativo posible con fichas enteras: cada ficha (mayor→menor) al ganador con menos valor
+    const bag=[]; DENOMS.slice().reverse().forEach(d=>{ for(let k=0;k<S.pot[d];k++) bag.push(d); });
+    const acc = indices.map(()=>0);
+    const give = indices.map(()=>emptyChips());
+    bag.forEach(d=>{
+      let mi=0; for(let k=1;k<indices.length;k++){ if(acc[k]<acc[mi]) mi=k; }
+      give[mi][d]++; acc[mi]+=d;
+    });
+    indices.forEach((pi,k)=>{ DENOMS.forEach(d=>{ S.players[pi].chips[d]+=give[k][d]; }); });
+  }
+  S.pot=emptyChips();
+  newHand();
+}
+function newHand(){
+  S.hand++;
+  // el botón de repartidor pasa al siguiente jugador que aún tenga fichas
+  let nd=S.dealer;
+  for(let k=1;k<=N();k++){ const j=(S.dealer+k)%N(); if(value(S.players[j].chips)>0){ nd=j; break; } }
+  S.dealer=nd;
+  S.players.forEach(p=>{ p.folded=false; p.allIn=false; p.roundBet=0; });
+  // jugadores sin fichas quedan fuera (eliminados): no reparten ni pueden ganar
+  S.players.forEach(p=>{ p.out = value(p.chips)===0; });
+  S.currentBet=0; S.acted=[]; S.roundClosed=false; S.staged=emptyChips(); S.stagedOrder=[];
+  S.street=0;
+  const withChips=S.players.filter(p=>value(p.chips)>0);
+  if(withChips.length<=1){ S.over=true; }
+  const first=nextActiveFrom(S.dealer);
+  S.turn = first===-1? S.dealer : first;
+  closeModal();
+  renderAll();
+}
+
+/* ============ MODALS ============ */
+function openWinner(){
+  const alive=S.players.map((p,i)=>({p,i})).filter(o=>inHand(o.p));
+  const opts = (alive.length? alive : S.players.map((p,i)=>({p,i})).filter(o=>!o.p.out));
+  window._win=new Set();
+  document.getElementById("modal-root").innerHTML=`
+    <div class="overlay" data-action="modal-bg">
+      <div class="modal" data-stop>
+        <h3>¿Quién gana el bote?</h3>
+        <p>Bote de <b style="color:var(--gold)">${fmt(value(S.pot))}</b>. Marca uno o varios ganadores (empate = reparto lo más justo posible en fichas).</p>
+        <div class="win-list">
+          ${opts.map(o=>`
+            <div class="win-opt" data-action="toggle-win" data-i="${o.i}">
+              <div class="box">✓</div>
+              <div class="wn">${escapeHtml(o.p.name)}</div>
+              <div class="wt">${fmt(value(o.p.chips))}</div>
+            </div>`).join("")}
+        </div>
+        <div class="modal-btns">
+          <button class="btn ghost" data-action="modal-close">Cancelar</button>
+          <button class="btn gold" data-action="do-award">Repartir bote</button>
+        </div>
+      </div>
+    </div>`;
+}
+function toggleWin(i){
+  window._win = window._win||new Set();
+  if(window._win.has(i)) window._win.delete(i); else window._win.add(i);
+  document.querySelectorAll(".win-opt").forEach(el=>{
+    el.classList.toggle("sel", window._win.has(+el.dataset.i));
+  });
+}
+function doAward(){
+  const idx=[...(window._win||[])];
+  if(idx.length===0){ toast("Elige al menos un ganador"); return; }
+  awardTo(idx.sort((a,b)=>a-b));
+  const names=idx.map(i=>S.players[i].name).join(" y ");
+  toast(idx.length>1? `Bote repartido entre ${names}` : `${names} gana el bote`);
+}
+
+function openChange(){
+  const p=S.players[S.turn];
+  // sólo desgloses de valor exacto y con fichas disponibles
+  const valid=[
+    {from:500, into:{200:2,100:1}, txt:"2 fichas de 2 € + 1 de 1 €"},
+    {from:500, into:{100:5},       txt:"5 fichas de 1 €"},
+    {from:200, into:{100:2},       txt:"2 fichas de 1 €"},
+    {from:200, into:{100:1,50:2},  txt:"1 de 1 € + 2 de 0,50 €"},
+    {from:100, into:{50:2},        txt:"2 fichas de 0,50 €"},
+    // Nota: una ficha de 0,50 no tiene cambio exacto en fichas menores (0,20+0,20 = 0,40).
+  ].filter(b=> b.txt && value(b.into)===b.from && p.chips[b.from]>0);
+
+  document.getElementById("modal-root").innerHTML=`
+    <div class="overlay" data-action="modal-bg">
+      <div class="modal" data-stop>
+        <h3>Cambiar fichas</h3>
+        <p>Rompe una ficha grande de <b>${escapeHtml(p.name)}</b> en otras más pequeñas del mismo valor. Útil para poder igualar apuestas justas.</p>
+        <div class="break-list">
+          ${valid.length? valid.map((b,k)=>`
+            <div class="break-row">
+              ${chipHTML(b.from,36)}
+              <div class="txt"><b>${CHIP[b.from].label} € →</b>${b.txt}</div>
+              <button class="btn gold sm" data-action="do-break" data-k="${k}">Cambiar</button>
+            </div>`).join("")
+          : `<p style="color:var(--muted)">Este jugador no tiene fichas grandes que romper ahora mismo.</p>`}
+        </div>
+        <div class="modal-btns">
+          <button class="btn" data-action="modal-close">Cerrar</button>
+        </div>
+      </div>
+    </div>`;
+  window._breaks=valid;
+}
+function doBreak(k){
+  const b=window._breaks[k]; if(!b) return;
+  const p=S.players[S.turn];
+  if(p.chips[b.from]<=0) return;
+  p.chips[b.from]--;
+  Object.entries(b.into).forEach(([d,n])=>{ p.chips[+d]+=n; });
+  closeModal();
+  renderAll();
+  toast("Fichas cambiadas");
+}
+function closeModal(){ document.getElementById("modal-root").innerHTML=""; }
+
+/* ============ NEW GAME ============ */
+function confirmNewGame(){
+  document.getElementById("modal-root").innerHTML=`
+    <div class="overlay" data-action="modal-bg">
+      <div class="modal" data-stop style="max-width:380px">
+        <h3>¿Reiniciar partida?</h3>
+        <p>Se borrarán las fichas y el bote actuales y volverás a la pantalla de configuración.</p>
+        <div class="modal-btns">
+          <button class="btn" data-action="modal-close">Cancelar</button>
+          <button class="btn danger" data-action="do-newgame">Reiniciar</button>
+        </div>
+      </div></div>`;
+}
+function doNewGame(){ S=setupState(); closeModal(); renderAll(); }
+
+/* ============ TOAST ============ */
+let toastT=null;
+function toast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2200);
+}
+
+/* ============ CHROME SYNC (evita que la barra tape el contenido) ============ */
+function syncChrome(){
+  const wrap=document.querySelector(".wrap");
+  const bar=document.querySelector(".action");
+  if(!wrap) return;
+  if(bar){
+    const h=bar.offsetHeight;
+    document.documentElement.style.setProperty("--bar-h", h+"px");
+    wrap.style.paddingBottom=(h+28)+"px";
+  } else {
+    document.documentElement.style.setProperty("--bar-h","0px");
+    wrap.style.paddingBottom="40px";
+  }
+}
+window.addEventListener("resize", syncChrome);
+window.addEventListener("orientationchange", ()=>setTimeout(syncChrome,120));
+
+/* ============ UTIL ============ */
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+
+/* ============ RENDER DISPATCH ============ */
+function renderAll(persist=true){
+  if(S.screen==="setup") renderSetup();
+  else renderGame();
+  if(persist) save();
+}
+
+/* ============ EVENTS ============ */
+document.addEventListener("click",e=>{
+  const el=e.target.closest("[data-action]");
+  if(!el) return;
+  const a=el.dataset.action;
+  switch(a){
+    case "start": startGame(); break;
+    case "add": addChip(+el.dataset.d); break;
+    case "undo": undo(); break;
+    case "confirm": confirmBet(); break;
+    case "check": check(); break;
+    case "fold": fold(); break;
+    case "allin": allIn(); break;
+    case "change": openChange(); break;
+    case "do-break": doBreak(+el.dataset.k); break;
+    case "next-round": nextRound(); break;
+    case "end-hand": openWinner(); break;
+    case "toggle-win": toggleWin(+el.dataset.i); break;
+    case "do-award": doAward(); break;
+    case "new-game": confirmNewGame(); break;
+    case "do-newgame": doNewGame(); break;
+    case "modal-close": closeModal(); break;
+    case "modal-bg": if(e.target===el) closeModal(); break;
+  }
+});
+// setup: nombres + steppers
+document.addEventListener("input",e=>{
+  const n=e.target.closest("[data-name]");
+  if(n && S.screen==="setup"){ S.names[+n.dataset.name]=e.target.value; }
+});
+document.addEventListener("click",e=>{
+  const st=e.target.closest("[data-step]");
+  if(!st || S.screen!=="setup") return;
+  const d=+st.dataset.step, dir=+st.dataset.dir;
+  S.stack[d]=Math.max(0,Math.min(99,S.stack[d]+dir));
+  document.getElementById("cv"+d).textContent=S.stack[d];
+  const tv=fmt(value(S.stack));
+  const a=document.getElementById("stackTotal"), b=document.getElementById("stackTotal2");
+  if(a)a.textContent=tv; if(b)b.textContent=tv;
+});
+
+function startGame(){
+  const names=S.names.map((n,i)=> (n&&n.trim())? n.trim() : DEFAULT_NAMES[i]);
+  if(value(S.stack)===0){ toast("Dales al menos algunas fichas"); return; }
+  S=freshGame(names, S.stack);
+  renderAll();
+}
+
+/* ============ BOOT ============ */
+(async function(){
+  const saved=await load();
+  S = saved || setupState();
+  // saneado por si el guardado es de otra versión
+  if(S.screen==="game"){
+    if(!S.players || S.players.length!==4){ S=setupState(); }
+    else {
+      if(typeof S.street!=="number") S.street=0;
+      if(typeof S.over!=="boolean") S.over=false;
+      if(!S.pot) S.pot=emptyChips();
+      S.players.forEach(p=>{ if(typeof p.out!=="boolean") p.out=false; });
+    }
+  }
+  renderAll(false);
+})();
+</script>
+</body>
+</html>
