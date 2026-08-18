@@ -8,10 +8,14 @@ App web para **contar fichas y apuestas** jugando al póker **Texas Hold'em** co
 - La mesa se reorganiza sola según cuántos jugáis, y el asiento en turno se trae a la vista en pantallas pequeñas.
 - Fichas por denominación: 0,20 · 0,50 · 1 · 2 · 5 €.
 - Rondas de apuestas completas: **Pre-flop → Flop → Turn → River → Showdown**.
+- **Ciegas configurables** (pequeña de 0,20 a 2 €, grande el doble) o partida sin ciegas.
+- Marcas de **repartidor (D), ciega pequeña (CP) y ciega grande (CG)** en la mesa, rotando cada mano.
 - Acciones: pasar, apostar, igualar, subir, retirarse y **all-in**.
+- Botón **Poner X** que añade automáticamente las fichas justas para igualar (cambia fichas grandes solo si hace falta).
 - Reparto del bote a un ganador o **empate** (reparto justo en fichas).
 - Cambio de fichas grandes por pequeñas del mismo valor.
 - Detección de jugadores eliminados y fin de partida.
+- Pantalla de inicio y configuración de la mesa antes de empezar.
 - Diseño responsive pensado para **móvil e iPad**; la partida se guarda sola en el navegador.
 
 ## Uso

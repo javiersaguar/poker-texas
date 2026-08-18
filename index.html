@@ -97,7 +97,8 @@
   /* ---------- Player seat ---------- */
   .seat{background:linear-gradient(180deg,var(--panel),var(--panel-2));
     border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:11px 11px 12px;
-    box-shadow:0 6px 16px rgba(0,0,0,.3);transition:.2s;position:relative;min-width:0}
+    box-shadow:0 6px 16px rgba(0,0,0,.3);transition:.2s;position:relative;min-width:0;
+    scroll-margin-bottom:calc(var(--bar-h) + 16px);scroll-margin-top:16px}
   .seat.active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 0 24px rgba(216,169,78,.35)}
   .seat.folded{opacity:.42;filter:grayscale(.6)}
   .seat-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px}
@@ -107,6 +108,10 @@
     color:#3a2708;font-weight:800;font-size:12px;display:grid;place-items:center;flex:0 0 auto;
     box-shadow:0 1px 4px rgba(0,0,0,.5);font-family:"Fraunces",serif}
   .seat-total{font-weight:800;font-size:15px;color:var(--gold);white-space:nowrap;flex:0 0 auto}
+  .pos{font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 5px;border-radius:6px;flex:0 0 auto;
+    border:1px solid;line-height:1.2}
+  .pos.sb{color:#9fd8ff;border-color:rgba(159,216,255,.45);background:rgba(159,216,255,.12)}
+  .pos.bb{color:#ffc98a;border-color:rgba(255,201,138,.45);background:rgba(255,201,138,.12)}
   .tag{font-size:10px;padding:2px 7px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;font-weight:700}
   .tag.fold{background:rgba(224,67,58,.16);color:#ff9a92}
   .tag.allin{background:rgba(216,169,78,.16);color:var(--gold)}
@@ -187,10 +192,21 @@
   .row-min{display:flex;gap:8px;justify-content:center;margin-bottom:8px;flex-wrap:wrap}
 
   @media(max-width:380px){
-    .pick .chip{width:46px;height:46px}
+    .pick .chip{width:44px;height:44px}
     .pick .chip .v{font-size:12px}
     .picker{gap:6px}
     .btns .primary{font-size:14px;padding:12px}
+  }
+  /* En móviles la barra debe dejar sitio a la mesa: se aprieta todo un poco */
+  @media(max-width:520px){
+    .action{padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
+    .action-top{margin-bottom:7px}
+    .picker{padding:0 0 7px;gap:7px}
+    .pick .chip{width:48px;height:48px}
+    .staged{min-height:28px;margin:0 0 8px}
+    .row-min{margin-bottom:7px;gap:6px}
+    .btns{gap:6px}
+    .btns .primary{padding:12px}
   }
   @media(min-width:720px){
     .pick .chip{width:60px;height:60px}
@@ -258,6 +274,19 @@
   .toast.show{opacity:1}
   .hidden{display:none!important}
 
+  /* ---------- Pantalla de inicio ---------- */
+  .home{min-height:calc(100vh - 56px);min-height:calc(100dvh - 56px);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:20px 10px}
+  .home h1{font-family:"Fraunces",Georgia,serif;font-weight:900;margin:0;line-height:.92;
+    font-size:clamp(52px,17vw,96px);letter-spacing:1px}
+  .home h1 .dot{color:var(--gold)}
+  .home .tag-line{font-size:clamp(9px,2.5vw,11px);letter-spacing:3px;text-transform:uppercase;
+    color:var(--gold);margin-top:12px}
+  .home .chips{display:flex;gap:12px;margin:30px 0 28px}
+  .home .btn{font-size:17px;padding:15px 46px;border-radius:14px}
+  .home .by{font-size:11px;color:var(--muted-2);letter-spacing:1px;margin-top:30px}
+
   @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -293,6 +322,7 @@ const DEFAULT_NAMES = ["Jugador 1","Jugador 2","Jugador 3","Jugador 4",
                        "Jugador 5","Jugador 6","Jugador 7","Jugador 8"];
 const STREETS = ["Pre-flop","Flop","Turn","River"];
 const MIN_PLAYERS = 2, MAX_PLAYERS = 8;
+const BLINDS = [0,20,50,100,200];   // ciega pequeña; la grande es siempre el doble
 const DEFAULT_COUNT = 4;
 const clampCount = n => Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n|0));
 
@@ -304,18 +334,74 @@ const value = c => DENOMS.reduce((s,d)=>s+d*c[d],0);
 const countChips = c => DENOMS.reduce((s,d)=>s+c[d],0);
 const fmt = cents => (cents/100).toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
 
+/* Combinación exacta de fichas que suma `target`, con el menor número de fichas.
+   Devuelve null si no hay forma exacta (p.ej. 0,30 € no se puede formar). */
+function chipsForAmount(chips, target){
+  if(target<=0 || value(chips)<target) return null;
+  const order=DENOMS.slice().reverse();      // de mayor a menor
+  const memo=new Map();
+  function go(i, rem){
+    if(rem===0) return emptyChips();
+    if(i>=order.length) return null;
+    const key=i+":"+rem;
+    if(memo.has(key)) return memo.get(key);
+    const d=order[i];
+    const max=Math.min(chips[d], Math.floor(rem/d));
+    let best=null;
+    for(let k=max;k>=0;k--){
+      const sub=go(i+1, rem-k*d);
+      if(sub){ const cand=cloneChips(sub); cand[d]=k;
+        if(!best || countChips(cand)<countChips(best)) best=cand; }
+    }
+    memo.set(key,best); return best;
+  }
+  return go(0,target);
+}
+/* Igual, pero rompiendo fichas grandes (conserva el valor) si hace falta.
+   Devuelve las fichas del jugador ya recolocadas, o null si no hay manera. */
+const BREAKDOWN = {500:{200:2,100:1}, 200:{100:2}, 100:{50:2}};
+/* ¿Se puede formar `target` exacto rompiendo fichas? Rompiéndolo todo, un montón
+   queda en fichas de 0,50 y 0,20, así que basta comprobar 50b+20a = target.
+   Es O(target/50) y evita recalcular la combinación completa en cada render. */
+function canFormAmount(chips, target){
+  if(target<=0 || value(chips)<target) return false;
+  const a20=chips[20];
+  const a50=chips[50] + 2*chips[100] + 4*chips[200] + 10*chips[500];
+  const maxB=Math.min(a50, Math.floor(target/50));
+  for(let b=0;b<=maxB;b++){
+    const rem=target-50*b;
+    if(rem%20===0 && rem/20<=a20) return true;
+  }
+  return false;
+}
+function withChangeFor(chips, target){
+  if(target<=0 || value(chips)<target) return null;
+  const c=cloneChips(chips);
+  for(let guard=0; guard<60; guard++){
+    if(chipsForAmount(c,target)) return c;
+    let broke=false;
+    for(const d of [100,200,500]){
+      if(c[d]>0){ c[d]--; Object.entries(BREAKDOWN[d]).forEach(([k,n])=>{ c[+k]+=n; }); broke=true; break; }
+    }
+    if(!broke) break;
+  }
+  return chipsForAmount(c,target)? c : null;
+}
+
 const N = () => S.players.length;
 const inHand = p => !p.folded && !p.out;      // sigue vivo en la mano
 const canAct = p => inHand(p) && !p.allIn;    // puede realizar una acción
 
-function freshGame(names, stack){
+function freshGame(names, stack, blind){
   return {
     screen:"game",
     players: names.map(n=>({name:n, chips:cloneChips(stack), folded:false, allIn:false, out:false, roundBet:0})),
     stack: cloneChips(stack),      // fichas de salida, para reutilizarlas al reiniciar
     pot: emptyChips(),
     dealer: 0,
-    turn: names.length>1? 1 : 0,   // el primero en hablar es el siguiente al repartidor
+    turn: names.length>1? 1 : 0,   // beginHand() lo recalcula según las ciegas
+    blind: blind||0,
+    sb: -1, bb: -1,
     currentBet: 0,
     staged: emptyChips(),
     stagedOrder: [],
@@ -326,10 +412,12 @@ function freshGame(names, stack){
     over: false,
   };
 }
+function homeState(){ const st=setupState(); st.screen="home"; return st; }
 function setupState(){
   return {
     screen:"setup",
     count:DEFAULT_COUNT,
+    blind:20,                       // ciega pequeña por defecto: 0,20 € (grande 0,40 €)
     names:[...DEFAULT_NAMES],       // guarda los 8; se usan los `count` primeros
     stack:cloneChips(DEFAULT_STACK),
   };
@@ -360,9 +448,27 @@ function chipHTML(d, size){
   return `<span class="chip ${c.cls}" ${s}><span class="v">${c.label}</span></span>`;
 }
 
+/* ============ RENDER: HOME ============ */
+function showTopbar(on){ const t=document.querySelector(".topbar"); if(t) t.classList.toggle("hidden", !on); }
+function renderHome(){
+  document.getElementById("topbtns").innerHTML="";
+  document.getElementById("action-root").innerHTML="";
+  showTopbar(false);
+  document.getElementById("app").innerHTML = `
+    <div class="home">
+      <h1>Póker<span class="dot">.</span></h1>
+      <div class="tag-line">Texas Hold&rsquo;em · gestor de fichas</div>
+      <div class="chips">${[20,100,500].map(d=>chipHTML(d,54)).join("")}</div>
+      <button class="btn gold" data-action="play">Jugar →</button>
+      <div class="by">creado por Javier Saguar</div>
+    </div>`;
+  syncChrome();
+}
+
 /* ============ RENDER: SETUP ============ */
 function renderSetup(){
   const total = value(S.stack);
+  showTopbar(true);
   document.getElementById("topbtns").innerHTML="";
   document.getElementById("action-root").innerHTML="";   // limpia barra de juego si venimos de una partida
   const app=document.getElementById("app");
@@ -376,6 +482,16 @@ function renderSetup(){
           <button data-count="-1" ${S.count<=MIN_PLAYERS?"disabled":""} aria-label="Quitar jugador">−</button>
           <div class="val" id="pcount">${S.count}</div>
           <button data-count="1" ${S.count>=MAX_PLAYERS?"disabled":""} aria-label="Añadir jugador">+</button>
+        </div>
+      </div>
+      <div class="count-row">
+        <div class="lbl"><b>Ciegas obligatorias</b><span>${S.blind>0
+          ? `Pequeña ${fmt(S.blind)} · Grande ${fmt(S.blind*2)}`
+          : "Nadie paga por entrar"}</span></div>
+        <div class="stepper">
+          <button data-blind="-1" ${BLINDS.indexOf(S.blind)<=0?"disabled":""} aria-label="Bajar ciega">−</button>
+          <div class="val" id="bval" style="min-width:76px">${S.blind>0? fmt(S.blind) : "Sin"}</div>
+          <button data-blind="1" ${BLINDS.indexOf(S.blind)>=BLINDS.length-1?"disabled":""} aria-label="Subir ciega">+</button>
         </div>
       </div>
       <div class="players-setup">
@@ -414,6 +530,7 @@ function seatRows(){
   return [idx.slice(0,topN), idx.slice(topN)];
 }
 function renderGame(){
+  showTopbar(true);
   document.getElementById("topbtns").innerHTML = `
     <button class="btn ghost sm" data-action="new-game">Reiniciar</button>`;
   const app=document.getElementById("app");
@@ -433,7 +550,9 @@ function renderGame(){
     else if(p.folded) tag=`<span class="tag fold">retirado</span>`;
     else if(p.allIn) tag=`<span class="tag allin">all-in</span>`;
     else if(p.roundBet>0) tag=`<span class="tag bet">apuesta ${fmt(p.roundBet)}</span>`;
-    const dealer = i===S.dealer? `<span class="dealer" title="Repartidor">D</span>`:"";
+    let badges = i===S.dealer? `<span class="dealer" title="Repartidor">D</span>`:"";
+    if(i===S.sb) badges += `<span class="pos sb" title="Ciega pequeña">CP</span>`;
+    if(i===S.bb) badges += `<span class="pos bb" title="Ciega grande">CG</span>`;
     const mini = DENOMS.map(d=>`
       <span class="mini ${p.chips[d]===0?"zero":""}">
         <span class="md" style="background:${CHIPCOL[d]}"></span>${CHIP[d].label}<b>×${p.chips[d]}</b>
@@ -441,7 +560,7 @@ function renderGame(){
     return `
       <div class="${cls.join(' ')}" data-pos="${i}">
         <div class="seat-head">
-          <div class="seat-name">${dealer}<span class="nm">${escapeHtml(p.name)}</span></div>
+          <div class="seat-name">${badges}<span class="nm">${escapeHtml(p.name)}</span></div>
           <div class="seat-total">${fmt(value(p.chips))}</div>
         </div>
         <div class="mini-chips">${mini}</div>
@@ -468,6 +587,7 @@ function renderGame(){
         <div class="street">${dots}</div>
         <div class="pot-stack">${potStack}</div>
         ${potInfo}
+        ${S.blind>0?`<div class="to-match">Ciegas <b>${fmt(S.blind)}</b> / <b>${fmt(S.blind*2)}</b></div>`:""}
       </div>
       <div class="seat-row">${bottomRow.map(seatHTML).join("")}</div>
     </div>`;
@@ -554,6 +674,8 @@ function renderAction(){
   if(S.currentBet===0){
     if(stagedVal>0){ mainLabel=`Apostar ${fmt(stagedVal)}`; }
     else { mainLabel="Pasar"; mainAct="check"; mainClass="btn primary"; }
+  } else if(stagedVal===0 && p.roundBet>=S.currentBet){
+    mainLabel="Pasar"; mainAct="check"; mainClass="btn primary";   // ya cubierto (p.ej. ciega grande)
   } else {
     if(finalBet>S.currentBet){ mainLabel=`Subir a ${fmt(finalBet)}`; }
     else if(finalBet===S.currentBet){ mainLabel=`Igualar ${fmt(finalBet)}`; }
@@ -561,9 +683,16 @@ function renderAction(){
     else { mainLabel=`Te faltan ${fmt(S.currentBet-finalBet)}`; mainDisabled=true; }
   }
 
-  const canCheck = S.currentBet===0; // pasar solo si nadie ha apostado
+  const canCheck = S.currentBet===0 || p.roundBet>=S.currentBet; // ya cubierto = puede pasar
   const hasStaged = stagedVal>0;
   const canAllIn = value(p.chips)+stagedVal>0;
+  // botón que añade exactamente las fichas que faltan para igualar
+  const needCall = S.currentBet - p.roundBet - stagedVal;
+  const canAutoCall = needCall>0 && canFormAmount(p.chips, needCall);
+  const callBtn = needCall>0
+    ? `<button class="btn sm gold" data-action="autocall" ${canAutoCall?"":"disabled"}
+        title="Añade las fichas justas para igualar">Poner ${fmt(needCall)}</button>`
+    : "";
 
   root.innerHTML = `
     <div class="action"><div class="action-in">
@@ -579,6 +708,7 @@ function renderAction(){
         ${hasStaged?`<button class="btn ghost sm" data-action="undo">Deshacer</button>`:""}
       </div>
       <div class="row-min">
+        ${callBtn}
         <button class="btn sm" data-action="allin" ${canAllIn?"":"disabled"}>All-in (${fmt(value(p.chips)+stagedVal)})</button>
         <button class="btn sm" data-action="change">Cambiar fichas</button>
       </div>
@@ -617,6 +747,20 @@ function allInStage(){
   DENOMS.forEach(d=>{ S.staged[d]+=p.chips[d]; for(let k=0;k<p.chips[d];k++)S.stagedOrder.push(d); p.chips[d]=0; });
   renderAll(false);
 }
+/* Pone en la mesa exactamente lo que falta para igualar (rompiendo fichas si hace falta) */
+function autoCall(){
+  const p=S.players[S.turn];
+  const need=S.currentBet - p.roundBet - value(S.staged);
+  if(need<=0){ toast("Ya tienes la apuesta igualada"); return; }
+  const changed=withChangeFor(p.chips, need);
+  if(!changed){ toast("No hay cambio exacto para esa cantidad"); return; }
+  const brokeChips = countChips(changed)!==countChips(p.chips);
+  p.chips=changed;
+  const combo=chipsForAmount(p.chips, need);
+  DENOMS.forEach(d=>{ for(let k=0;k<combo[d];k++){ p.chips[d]--; S.staged[d]++; S.stagedOrder.push(d); } });
+  renderAll(false);
+  if(brokeChips) toast("Fichas cambiadas para poder igualar");
+}
 function markActed(i){ if(!S.acted.includes(i)) S.acted.push(i); }
 
 function confirmBet(){
@@ -640,7 +784,8 @@ function confirmBet(){
   advance();
 }
 function check(){
-  if(S.currentBet!==0){ toast("Hay una apuesta: iguala o retírate"); return; }
+  const p=S.players[S.turn];
+  if(S.currentBet!==0 && p.roundBet<S.currentBet){ toast("Hay una apuesta: iguala o retírate"); return; }
   returnStaged();
   markActed(S.turn);
   advance();
@@ -736,17 +881,69 @@ function newHand(){
   let nd=S.dealer;
   for(let k=1;k<=N();k++){ const j=(S.dealer+k)%N(); if(value(S.players[j].chips)>0){ nd=j; break; } }
   S.dealer=nd;
+  closeModal();
+  beginHand();
+  renderAll();
+}
+
+/* siguiente jugador que sigue en la partida (tiene fichas) */
+function nextEligible(from){
+  for(let k=1;k<=N();k++){ const j=(from+k)%N(); if(!S.players[j].out) return j; }
+  return from;
+}
+
+/* Un jugador paga `amount` de su montón: rompe fichas si hace falta para dar
+   la cantidad justa, y si no puede formarla exacta paga lo mínimo por encima. */
+function payFromStack(p, amount){
+  const total=value(p.chips);
+  if(total<=amount){ const all=cloneChips(p.chips); return {combo:all, paid:total}; }
+  const exact=withChangeFor(p.chips, amount);
+  if(exact){ p.chips=exact; return {combo:chipsForAmount(exact,amount), paid:amount}; }
+  const limit=Math.min(total, amount+400);       // no busques más de 4 € por encima
+  for(let t=amount+10; t<=limit; t+=10){
+    if(!canFormAmount(p.chips, t)) continue;
+    const c=withChangeFor(p.chips, t);
+    if(c){ p.chips=c; return {combo:chipsForAmount(c,t), paid:t}; }
+  }
+  const all=cloneChips(p.chips); return {combo:all, paid:total};
+}
+
+/* Pone la ciega de un jugador en el bote */
+function postBlind(i, amount){
+  const p=S.players[i];
+  const {combo, paid}=payFromStack(p, amount);
+  DENOMS.forEach(d=>{ p.chips[d]-=combo[d]; S.pot[d]+=combo[d]; });
+  p.roundBet=paid;
+  if(value(p.chips)===0) p.allIn=true;
+  if(paid>S.currentBet) S.currentBet=paid;
+}
+
+/* Arranca una mano: reinicia, coloca ciegas y decide quién habla primero */
+function beginHand(){
   S.players.forEach(p=>{ p.folded=false; p.allIn=false; p.roundBet=0; });
-  // jugadores sin fichas quedan fuera (eliminados): no reparten ni pueden ganar
+  // jugadores sin fichas quedan fuera (eliminados)
   S.players.forEach(p=>{ p.out = value(p.chips)===0; });
   S.currentBet=0; S.acted=[]; S.roundClosed=false; S.staged=emptyChips(); S.stagedOrder=[];
-  S.street=0; lastTurnFocused=null;
-  const withChips=S.players.filter(p=>value(p.chips)>0);
-  if(withChips.length<=1){ S.over=true; }
-  const first=nextActiveFrom(S.dealer);
-  S.turn = first===-1? S.dealer : first;
-  closeModal();
-  renderAll();
+  S.street=0; S.sb=-1; S.bb=-1; lastTurnFocused=null;
+
+  const eligible=S.players.filter(p=>!p.out).length;
+  if(eligible<=1){ S.over=true; S.turn=S.dealer; return; }
+
+  if(S.blind>0){
+    // heads-up: el repartidor es la ciega pequeña; con 3+ va tras el botón
+    if(eligible===2){ S.sb=S.dealer; S.bb=nextEligible(S.dealer); }
+    else { S.sb=nextEligible(S.dealer); S.bb=nextEligible(S.sb); }
+    postBlind(S.sb, S.blind);
+    postBlind(S.bb, S.blind*2);
+  }
+
+  let first;
+  if(S.blind>0 && eligible===2) first = canAct(S.players[S.dealer])? S.dealer : nextActiveFrom(S.dealer);
+  else if(S.blind>0)            first = nextActiveFrom(S.bb);      // el siguiente a la ciega grande
+  else                          first = nextActiveFrom(S.dealer);
+  S.turn = (first===-1||first==null)? S.dealer : first;
+
+  if(roundDone()==="closed") S.roundClosed=true;
 }
 
 /* ============ MODALS ============ */
@@ -854,6 +1051,7 @@ function doNewGame(){
     st.count=clampCount(S.players.length);
     S.players.forEach((p,i)=>{ if(i<MAX_PLAYERS && p && p.name) st.names[i]=p.name; });
     if(S.stack) st.stack=cloneChips(S.stack);
+    if(BLINDS.includes(S.blind)) st.blind=S.blind;
   }
   S=st; closeModal(); renderAll();
 }
@@ -894,7 +1092,7 @@ function focusActiveSeat(){
   const visible = r.top>=0 && r.bottom<=(window.innerHeight-barH);
   if(visible) return;
   const smooth=!window.matchMedia||!window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  try{ el.scrollIntoView({behavior:smooth?"smooth":"auto", block:"center"}); }catch(e){ el.scrollIntoView(); }
+  try{ el.scrollIntoView({behavior:smooth?"smooth":"auto", block:"nearest"}); }catch(e){ el.scrollIntoView(); }
 }
 window.addEventListener("resize", syncChrome);
 window.addEventListener("orientationchange", ()=>setTimeout(syncChrome,120));
@@ -904,7 +1102,8 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<"
 
 /* ============ RENDER DISPATCH ============ */
 function renderAll(persist=true){
-  if(S.screen==="setup") renderSetup();
+  if(S.screen==="home") renderHome();
+  else if(S.screen==="setup") renderSetup();
   else renderGame();
   if(persist) save();
 }
@@ -915,7 +1114,9 @@ document.addEventListener("click",e=>{
   if(!el) return;
   const a=el.dataset.action;
   switch(a){
+    case "play": S.screen="setup"; renderAll(); break;
     case "start": startGame(); break;
+    case "autocall": autoCall(); break;
     case "add": addChip(+el.dataset.d); break;
     case "undo": undo(); break;
     case "confirm": confirmBet(); break;
@@ -943,6 +1144,16 @@ document.addEventListener("input",e=>{
   const n=e.target.closest("[data-name]");
   if(n && S.screen==="setup"){ S.names[+n.dataset.name]=e.target.value; save(); }
 });
+// setup: valor de las ciegas
+document.addEventListener("click",e=>{
+  const c=e.target.closest("[data-blind]");
+  if(!c || S.screen!=="setup") return;
+  const i=BLINDS.indexOf(S.blind);
+  const ni=Math.max(0,Math.min(BLINDS.length-1,(i<0?0:i)+(+c.dataset.blind)));
+  if(BLINDS[ni]===S.blind) return;
+  S.blind=BLINDS[ni];
+  renderAll();
+});
 // setup: número de jugadores
 document.addEventListener("click",e=>{
   const c=e.target.closest("[data-count]");
@@ -968,14 +1179,17 @@ function startGame(){
   const count=clampCount(S.count);
   const names=S.names.slice(0,count).map((n,i)=> (n&&n.trim())? n.trim() : DEFAULT_NAMES[i]);
   if(value(S.stack)===0){ toast("Dales al menos algunas fichas"); return; }
-  S=freshGame(names, S.stack);
+  const blind=BLINDS.includes(S.blind)? S.blind : 0;
+  if(blind*2 > value(S.stack)){ toast("La ciega grande no cabe en las fichas de salida"); return; }
+  S=freshGame(names, S.stack, blind);
+  beginHand();
   renderAll();
 }
 
 /* ============ BOOT ============ */
 (async function(){
   const saved=await load();
-  S = saved || setupState();
+  S = saved || homeState();
   // saneado por si el guardado es de otra versión
   if(S.screen==="game"){
     if(!Array.isArray(S.players) || S.players.length<MIN_PLAYERS || S.players.length>MAX_PLAYERS){ S=setupState(); }
@@ -989,19 +1203,23 @@ function startGame(){
       const n=S.players.length;
       if(!(S.dealer>=0 && S.dealer<n)) S.dealer=0;
       if(!(S.turn>=0 && S.turn<n)) S.turn=0;
+      if(typeof S.blind!=="number") S.blind=0;
+      if(typeof S.sb!=="number") S.sb=-1;
+      if(typeof S.bb!=="number") S.bb=-1;
     }
   }
-  if(S.screen==="setup"){
+  if(S.screen==="setup" || S.screen==="home"){
     S.count=clampCount(typeof S.count==="number"? S.count : DEFAULT_COUNT);
     const nm=[...DEFAULT_NAMES];
     if(Array.isArray(S.names)) S.names.forEach((v,i)=>{ if(i<MAX_PLAYERS && typeof v==="string") nm[i]=v; });
     S.names=nm;
     if(!S.stack) S.stack=cloneChips(DEFAULT_STACK);
+    if(!BLINDS.includes(S.blind)) S.blind=20;
   }
   // última red de seguridad: si el estado guardado no es utilizable, empezamos de cero
-  if(!S || (S.screen!=="setup" && S.screen!=="game")) S=setupState();
+  if(!S || ["home","setup","game"].indexOf(S.screen)===-1) S=homeState();
   try{ renderAll(false); }
-  catch(err){ S=setupState(); renderAll(false); }
+  catch(err){ S=homeState(); renderAll(false); }
 })();
 </script>
 </body>
