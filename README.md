@@ -15,9 +15,10 @@ App web para **contar fichas y apuestas** jugando al póker **Texas Hold'em** co
 - Reparto del bote a un ganador o **empate** (reparto justo en fichas).
 - Cambio de fichas grandes por pequeñas del mismo valor.
 - **Recompra**: quien se queda sin fichas —o muy por debajo del resto— puede volver a entrar, y esa entrada cuenta en las cuentas finales.
+- **Pantalla entre manos**: al repartir el bote se ve quién ha ganado y cómo va cada uno, y desde ahí se elige jugar otra mano, recomprar o cerrar la partida.
 - **Finalizar partida**: pantalla de resultados con lo que ha puesto y ganado cada uno y **quién paga cuánto a quién** (número mínimo de pagos).
 - Detección de jugadores eliminados y fin de partida.
-- Pantalla de inicio y configuración de la mesa antes de empezar.
+- Pantalla de inicio con opción de **continuar la última partida** (se guarda sola en el navegador).
 - Diseño responsive pensado para **móvil e iPad**; la partida se guarda sola en el navegador.
 
 ## Uso
@@ -36,6 +37,8 @@ python -m http.server 8000
 2. **Add New… → Project** e importa el repositorio `poker-texas`.
 3. **Framework Preset:** `Other`. Sin build command ni output directory (es estático).
 4. **Deploy**. Vercel servirá `index.html` en la raíz automáticamente.
+
+El `vercel.json` incluido desactiva la caché del HTML para que cada despliegue llegue al móvil sin tener que forzar recarga.
 
 No hay dependencias ni paso de compilación.
 
