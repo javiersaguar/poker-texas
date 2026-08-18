@@ -1,10 +1,11 @@
 # Póker · Gestor de fichas
 
-App web para **contar fichas y apuestas** jugando al póker **Texas Hold'em** con hasta 4 jugadores en un mismo dispositivo (móvil o iPad). La app lleva las fichas, las apuestas, el bote y las rondas de **Pre-flop, Flop, Turn y River** — vosotros ponéis las cartas.
+App web para **contar fichas y apuestas** jugando al póker **Texas Hold'em** con **de 2 a 8 jugadores** en un mismo dispositivo (móvil o iPad). La app lleva las fichas, las apuestas, el bote y las rondas de **Pre-flop, Flop, Turn y River** — vosotros ponéis las cartas.
 
 ## Características
 
-- 4 jugadores en un solo dispositivo (pásalo en cada turno).
+- **De 2 a 8 jugadores** en un solo dispositivo (pásalo en cada turno); mesa configurable antes de empezar.
+- La mesa se reorganiza sola según cuántos jugáis, y el asiento en turno se trae a la vista en pantallas pequeñas.
 - Fichas por denominación: 0,20 · 0,50 · 1 · 2 · 5 €.
 - Rondas de apuestas completas: **Pre-flop → Flop → Turn → River → Showdown**.
 - Acciones: pasar, apostar, igualar, subir, retirarse y **all-in**.

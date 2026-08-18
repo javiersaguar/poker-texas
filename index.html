@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0a1611">
-<meta name="description" content="Gestor de fichas y apuestas para jugar al póker Texas Hold'em con hasta 4 jugadores.">
+<meta name="description" content="Gestor de fichas y apuestas para jugar al póker Texas Hold'em con 2 a 8 jugadores.">
 <title>Póker · Gestor de fichas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -61,7 +61,7 @@
   .btn.danger{color:#ffb3ad;border-color:rgba(224,67,58,.4)}
   .btn.danger:hover{background:rgba(224,67,58,.14)}
   .btn:disabled{opacity:.38;cursor:not-allowed}
-  .btn.sm{padding:6px 10px;font-size:12px;border-radius:9px}
+  .btn.sm{padding:8px 12px;font-size:12px;border-radius:9px;min-height:36px}
 
   /* ---------- Table ---------- */
   .table{
@@ -70,26 +70,17 @@
       radial-gradient(120% 120% at 50% 30%, var(--felt) 0%, var(--felt-2) 78%);
     box-shadow:inset 0 0 0 10px var(--rail-2), inset 0 0 0 13px #3d2612,
                inset 0 0 60px rgba(0,0,0,.5), var(--shadow);
-    display:grid;gap:12px;
-    grid-template-columns:1fr 1fr;
-    grid-template-areas:
-      "p0 p1"
-      "pot pot"
-      "p2 p3";
+    display:flex;flex-direction:column;gap:12px;
   }
+  /* Las filas de asientos se adaptan solas al número de jugadores (2-8) */
+  .seat-row{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(148px,1fr))}
   @media(min-width:720px){
-    .table{
-      grid-template-columns:1fr 1.15fr 1fr;
-      grid-template-areas:
-        ". p0 ."
-        "p1 pot p2"
-        ". p3 .";
-      padding:26px;gap:16px;
-    }
+    .table{padding:26px;gap:16px}
+    .seat-row{gap:14px}
   }
 
   /* ---------- Pot ---------- */
-  .pot{grid-area:pot;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  .pot{display:flex;flex-direction:column;align-items:center;justify-content:center;
     padding:8px 0;min-height:120px;position:relative}
   .pot-label{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);opacity:.9;text-align:center}
   .pot-value{font-family:"Fraunces",serif;font-weight:900;font-size:clamp(30px,9vw,48px);line-height:1;
@@ -98,7 +89,7 @@
   .st-dot{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.16);transition:.2s}
   .st-dot.on{background:var(--gold-dim)}
   .st-dot.now{background:var(--gold);box-shadow:0 0 9px var(--gold)}
-  .pot-stack{display:flex;gap:2px;margin-top:8px;height:26px;align-items:flex-end;flex-wrap:wrap;justify-content:center;max-width:220px}
+  .pot-stack{display:flex;gap:2px;margin-top:8px;min-height:26px;align-items:flex-end;flex-wrap:wrap;justify-content:center;max-width:220px}
   .pot-stack .pc{width:20px;height:20px;border-radius:50%;border:2px dashed rgba(255,255,255,.6);flex:0 0 auto}
   .to-match{font-size:11px;color:var(--muted);margin-top:7px;letter-spacing:.5px;text-align:center}
   .to-match b{color:var(--ink)}
@@ -107,8 +98,6 @@
   .seat{background:linear-gradient(180deg,var(--panel),var(--panel-2));
     border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:11px 11px 12px;
     box-shadow:0 6px 16px rgba(0,0,0,.3);transition:.2s;position:relative;min-width:0}
-  .seat[data-pos="0"]{grid-area:p0}.seat[data-pos="1"]{grid-area:p1}
-  .seat[data-pos="2"]{grid-area:p2}.seat[data-pos="3"]{grid-area:p3}
   .seat.active{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 0 24px rgba(216,169,78,.35)}
   .seat.folded{opacity:.42;filter:grayscale(.6)}
   .seat-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px}
@@ -136,6 +125,17 @@
     .seat-name{width:100%}
     .seat-total{font-size:14px}
   }
+  /* Mesa llena (5+ jugadores): asientos más compactos, se ocultan las fichas a 0 */
+  .table.compact .seat{padding:9px 9px 10px;border-radius:14px}
+  .table.compact .seat-head{flex-direction:column;align-items:stretch;gap:2px}
+  .table.compact .seat-name{font-size:13px}
+  .table.compact .seat-total{font-size:14px}
+  .table.compact .mini{font-size:11px;gap:4px}
+  .table.compact .mini .md{width:13px;height:13px}
+  .table.compact .mini-chips{gap:3px 7px}
+  .table.compact .mini.zero{display:none}
+  .table.compact .dealer{width:20px;height:20px;font-size:11px}
+  .table.compact .pot{min-height:104px}
 
   /* ---------- Chip discs ---------- */
   .chip{
@@ -202,6 +202,11 @@
     border-radius:18px;padding:16px;box-shadow:var(--shadow)}
   .card h2{font-family:"Fraunces",serif;font-weight:600;margin:0 0 4px;font-size:20px}
   .card p.sub{margin:0 0 16px;color:var(--muted);font-size:13px;line-height:1.5}
+  .count-row{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:var(--panel-2);border:1px solid rgba(255,255,255,.06);border-radius:12px;
+    padding:11px 12px;margin-bottom:14px}
+  .count-row .lbl b{font-size:14px;display:block}
+  .count-row .lbl span{font-size:11px;color:var(--muted);display:block;margin-top:2px}
   .players-setup{display:grid;gap:10px;grid-template-columns:1fr;margin-bottom:16px}
   @media(min-width:620px){.players-setup{grid-template-columns:1fr 1fr}}
   .psetup{background:var(--panel-2);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:10px 11px}
@@ -219,6 +224,7 @@
   .stepper{display:flex;align-items:center;gap:0;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .stepper button{width:38px;height:36px;font-size:19px;font-weight:700;background:transparent;color:var(--ink)}
   .stepper button:active{background:#14332a}
+  .stepper button:disabled{opacity:.32;cursor:not-allowed}
   .stepper .val{min-width:42px;text-align:center;font-weight:700;font-size:15px}
   .note{font-size:12px;color:var(--muted-2);line-height:1.5;margin-top:14px}
 
@@ -283,8 +289,12 @@ const CHIP = {
 };
 const CHIPCOL = {20:"#22b6cc",50:"#37b24d",100:"#e0433a",200:"#7857e6",500:"#17171b"};
 const DEFAULT_STACK = {20:10, 50:6, 100:5, 200:3, 500:2};   // 26,00 € por jugador
-const DEFAULT_NAMES = ["Jugador 1","Jugador 2","Jugador 3","Jugador 4"];
+const DEFAULT_NAMES = ["Jugador 1","Jugador 2","Jugador 3","Jugador 4",
+                       "Jugador 5","Jugador 6","Jugador 7","Jugador 8"];
 const STREETS = ["Pre-flop","Flop","Turn","River"];
+const MIN_PLAYERS = 2, MAX_PLAYERS = 8;
+const DEFAULT_COUNT = 4;
+const clampCount = n => Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n|0));
 
 /* ============ STATE ============ */
 let S = null;
@@ -302,9 +312,10 @@ function freshGame(names, stack){
   return {
     screen:"game",
     players: names.map(n=>({name:n, chips:cloneChips(stack), folded:false, allIn:false, out:false, roundBet:0})),
+    stack: cloneChips(stack),      // fichas de salida, para reutilizarlas al reiniciar
     pot: emptyChips(),
     dealer: 0,
-    turn: 1,
+    turn: names.length>1? 1 : 0,   // el primero en hablar es el siguiente al repartidor
     currentBet: 0,
     staged: emptyChips(),
     stagedOrder: [],
@@ -318,13 +329,14 @@ function freshGame(names, stack){
 function setupState(){
   return {
     screen:"setup",
-    names:[...DEFAULT_NAMES],
+    count:DEFAULT_COUNT,
+    names:[...DEFAULT_NAMES],       // guarda los 8; se usan los `count` primeros
     stack:cloneChips(DEFAULT_STACK),
   };
 }
 
 /* ============ PERSISTENCE ============ */
-const KEY="poker_fichas_v2";
+const KEY="poker_fichas_v3";
 async function save(){
   try{
     const str=JSON.stringify(S);
@@ -357,12 +369,20 @@ function renderSetup(){
   app.innerHTML = `
     <div class="card">
       <h2>Nueva partida</h2>
-      <p class="sub">Cuatro jugadores en un mismo dispositivo. La app lleva las fichas, las apuestas y el bote — vosotros ponéis las cartas. Pon los nombres y las fichas de salida de cada jugador.</p>
+      <p class="sub">De 2 a 8 jugadores en un mismo dispositivo. La app lleva las fichas, las apuestas y el bote — vosotros ponéis las cartas. Elige cuántos jugáis, los nombres y las fichas de salida.</p>
+      <div class="count-row">
+        <div class="lbl"><b>Número de jugadores</b><span>Entre ${MIN_PLAYERS} y ${MAX_PLAYERS}</span></div>
+        <div class="stepper">
+          <button data-count="-1" ${S.count<=MIN_PLAYERS?"disabled":""} aria-label="Quitar jugador">−</button>
+          <div class="val" id="pcount">${S.count}</div>
+          <button data-count="1" ${S.count>=MAX_PLAYERS?"disabled":""} aria-label="Añadir jugador">+</button>
+        </div>
+      </div>
       <div class="players-setup">
-        ${S.names.map((n,i)=>`
+        ${S.names.slice(0,S.count).map((n,i)=>`
           <div class="psetup">
             <div class="idx">JUGADOR ${i+1}</div>
-            <input data-name="${i}" value="${escapeHtml(n)}" maxlength="16" placeholder="Nombre">
+            <input data-name="${i}" value="${escapeHtml(n)}" maxlength="16" placeholder="Nombre" aria-label="Nombre del jugador ${i+1}">
           </div>`).join("")}
       </div>
       <div class="chips-setup">
@@ -378,7 +398,7 @@ function renderSetup(){
             </div>
           </div>`).join("")}
       </div>
-      <p class="note">Consejo: no hace falta que cuadre con fichas reales. Cada jugador empieza con <b id="stackTotal2">${fmt(total)}</b>. Puedes cambiar fichas grandes por pequeñas durante la partida con el botón <b>Cambiar</b>.</p>
+      <p class="note">Consejo: no hace falta que cuadre con fichas reales. Cada jugador empieza con <b id="stackTotal2">${fmt(total)}</b>. Puedes cambiar fichas grandes por pequeñas durante la partida con el botón <b>Cambiar fichas</b>.</p>
       <div style="margin-top:18px;display:flex;justify-content:flex-end">
         <button class="btn gold" data-action="start">Empezar partida →</button>
       </div>
@@ -387,9 +407,11 @@ function renderSetup(){
 }
 
 /* ============ RENDER: GAME ============ */
-function seatPositions(){
-  // orden visual fijo p0..p3 = jugadores 0..3
-  return S.players.map((_,i)=>i);
+function seatRows(){
+  // reparte los asientos en dos filas alrededor del bote: arriba la mitad, abajo el resto
+  const idx = S.players.map((_,i)=>i);
+  const topN = Math.ceil(idx.length/2);
+  return [idx.slice(0,topN), idx.slice(topN)];
 }
 function renderGame(){
   document.getElementById("topbtns").innerHTML = `
@@ -401,7 +423,7 @@ function renderGame(){
     return Array.from({length:n}).map(()=>`<span class="pc" style="background:${CHIPCOL[d]}"></span>`);
   }).join("");
 
-  const seats = seatPositions().map(i=>{
+  const seatHTML = i=>{
     const p=S.players[i];
     const cls = ["seat"];
     if(i===S.turn && !S.roundClosed && !S.over) cls.push("active");
@@ -417,7 +439,7 @@ function renderGame(){
         <span class="md" style="background:${CHIPCOL[d]}"></span>${CHIP[d].label}<b>×${p.chips[d]}</b>
       </span>`).join("");
     return `
-      <div class="seat" data-pos="${i}">
+      <div class="${cls.join(' ')}" data-pos="${i}">
         <div class="seat-head">
           <div class="seat-name">${dealer}<span class="nm">${escapeHtml(p.name)}</span></div>
           <div class="seat-total">${fmt(value(p.chips))}</div>
@@ -425,7 +447,7 @@ function renderGame(){
         <div class="mini-chips">${mini}</div>
         <div class="seat-bet"><span>${tag||"&nbsp;"}</span></div>
       </div>`;
-  }).join("");
+  };
 
   let potInfo="";
   if(S.over){ potInfo=`<div class="to-match">Partida terminada</div>`; }
@@ -434,8 +456,12 @@ function renderGame(){
 
   const dots = STREETS.map((s,idx)=>`<span class="st-dot ${idx<=S.street?'on':''} ${idx===S.street&&!S.over?'now':''}" title="${s}"></span>`).join("");
 
+  const [topRow, bottomRow] = seatRows();
+  const compact = N()>=5? " compact":"";
+
   app.innerHTML = `
-    <div class="table">
+    <div class="table${compact}" data-n="${N()}">
+      <div class="seat-row">${topRow.map(seatHTML).join("")}</div>
       <div class="pot">
         <div class="pot-label">${STREETS[S.street]} · Mano ${S.hand}</div>
         <div class="pot-value">${fmt(potVal)}</div>
@@ -443,11 +469,12 @@ function renderGame(){
         <div class="pot-stack">${potStack}</div>
         ${potInfo}
       </div>
-      ${seats}
+      <div class="seat-row">${bottomRow.map(seatHTML).join("")}</div>
     </div>`;
 
   renderAction();
   syncChrome();
+  focusActiveSeat();
 }
 
 /* ============ RENDER: ACTION BAR ============ */
@@ -644,6 +671,10 @@ function roundDone(){
   if(alive.length<=1) return "win";
   const actable=S.players.map((p,i)=>({p,i})).filter(o=>canAct(o.p));
   if(actable.length===0) return "closed";               // todos all-in o retirados
+  if(actable.length===1){
+    // No hay contra quien apostar: solo sigue abierta si le falta igualar
+    return actable[0].p.roundBet>=S.currentBet ? "closed" : "open";
+  }
   const allMatched=actable.every(o=> S.acted.includes(o.i) && o.p.roundBet===S.currentBet);
   return allMatched? "closed":"open";
 }
@@ -663,8 +694,12 @@ function nextRound(){
   S.street++;
   S.players.forEach(p=>{ p.roundBet=0; });
   S.currentBet=0; S.acted=[]; S.roundClosed=false; S.staged=emptyChips(); S.stagedOrder=[];
+  // si ya no queda nadie (o solo uno) capaz de apostar, la calle se corre sola
+  const st=roundDone();
+  if(st==="win"){ autoWin(); return; }
+  if(st==="closed"){ S.roundClosed=true; renderAll(); return; }
   const first=nextActiveFrom(S.dealer);
-  if(first===-1){ S.roundClosed=true; }        // todos all-in → la calle se corre sola
+  if(first===-1){ S.roundClosed=true; }
   else S.turn=first;
   renderAll();
 }
@@ -705,7 +740,7 @@ function newHand(){
   // jugadores sin fichas quedan fuera (eliminados): no reparten ni pueden ganar
   S.players.forEach(p=>{ p.out = value(p.chips)===0; });
   S.currentBet=0; S.acted=[]; S.roundClosed=false; S.staged=emptyChips(); S.stagedOrder=[];
-  S.street=0;
+  S.street=0; lastTurnFocused=null;
   const withChips=S.players.filter(p=>value(p.chips)>0);
   if(withChips.length<=1){ S.over=true; }
   const first=nextActiveFrom(S.dealer);
@@ -812,7 +847,16 @@ function confirmNewGame(){
         </div>
       </div></div>`;
 }
-function doNewGame(){ S=setupState(); closeModal(); renderAll(); }
+function doNewGame(){
+  // conserva la configuración de la partida anterior: jugadores, nombres y fichas
+  const st=setupState();
+  if(S && S.screen==="game" && Array.isArray(S.players)){
+    st.count=clampCount(S.players.length);
+    S.players.forEach((p,i)=>{ if(i<MAX_PLAYERS && p && p.name) st.names[i]=p.name; });
+    if(S.stack) st.stack=cloneChips(S.stack);
+  }
+  S=st; closeModal(); renderAll();
+}
 
 /* ============ TOAST ============ */
 let toastT=null;
@@ -835,6 +879,22 @@ function syncChrome(){
     document.documentElement.style.setProperty("--bar-h","0px");
     wrap.style.paddingBottom="40px";
   }
+}
+/* Con muchos jugadores el asiento en turno puede quedar fuera de pantalla:
+   lo traemos a la vista, pero solo cuando cambia el turno. */
+let lastTurnFocused=null;
+function focusActiveSeat(){
+  if(S.roundClosed || S.over){ lastTurnFocused=null; return; }
+  if(S.turn===lastTurnFocused) return;
+  lastTurnFocused=S.turn;
+  const el=document.querySelector(".seat.active");
+  if(!el || !el.getBoundingClientRect) return;
+  const barH=parseInt(getComputedStyle(document.documentElement).getPropertyValue("--bar-h"))||0;
+  const r=el.getBoundingClientRect();
+  const visible = r.top>=0 && r.bottom<=(window.innerHeight-barH);
+  if(visible) return;
+  const smooth=!window.matchMedia||!window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  try{ el.scrollIntoView({behavior:smooth?"smooth":"auto", block:"center"}); }catch(e){ el.scrollIntoView(); }
 }
 window.addEventListener("resize", syncChrome);
 window.addEventListener("orientationchange", ()=>setTimeout(syncChrome,120));
@@ -874,10 +934,23 @@ document.addEventListener("click",e=>{
     case "modal-bg": if(e.target===el) closeModal(); break;
   }
 });
+// Escape cierra cualquier modal abierto
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape" && document.getElementById("modal-root").innerHTML!==""){ closeModal(); }
+});
 // setup: nombres + steppers
 document.addEventListener("input",e=>{
   const n=e.target.closest("[data-name]");
-  if(n && S.screen==="setup"){ S.names[+n.dataset.name]=e.target.value; }
+  if(n && S.screen==="setup"){ S.names[+n.dataset.name]=e.target.value; save(); }
+});
+// setup: número de jugadores
+document.addEventListener("click",e=>{
+  const c=e.target.closest("[data-count]");
+  if(!c || S.screen!=="setup") return;
+  const next=clampCount(S.count + (+c.dataset.count));
+  if(next===S.count) return;
+  S.count=next;
+  renderAll();
 });
 document.addEventListener("click",e=>{
   const st=e.target.closest("[data-step]");
@@ -888,10 +961,12 @@ document.addEventListener("click",e=>{
   const tv=fmt(value(S.stack));
   const a=document.getElementById("stackTotal"), b=document.getElementById("stackTotal2");
   if(a)a.textContent=tv; if(b)b.textContent=tv;
+  save();
 });
 
 function startGame(){
-  const names=S.names.map((n,i)=> (n&&n.trim())? n.trim() : DEFAULT_NAMES[i]);
+  const count=clampCount(S.count);
+  const names=S.names.slice(0,count).map((n,i)=> (n&&n.trim())? n.trim() : DEFAULT_NAMES[i]);
   if(value(S.stack)===0){ toast("Dales al menos algunas fichas"); return; }
   S=freshGame(names, S.stack);
   renderAll();
@@ -903,15 +978,30 @@ function startGame(){
   S = saved || setupState();
   // saneado por si el guardado es de otra versión
   if(S.screen==="game"){
-    if(!S.players || S.players.length!==4){ S=setupState(); }
+    if(!Array.isArray(S.players) || S.players.length<MIN_PLAYERS || S.players.length>MAX_PLAYERS){ S=setupState(); }
     else {
       if(typeof S.street!=="number") S.street=0;
       if(typeof S.over!=="boolean") S.over=false;
       if(!S.pot) S.pot=emptyChips();
+      if(!S.staged){ S.staged=emptyChips(); S.stagedOrder=[]; }
+      if(!Array.isArray(S.acted)) S.acted=[];
       S.players.forEach(p=>{ if(typeof p.out!=="boolean") p.out=false; });
+      const n=S.players.length;
+      if(!(S.dealer>=0 && S.dealer<n)) S.dealer=0;
+      if(!(S.turn>=0 && S.turn<n)) S.turn=0;
     }
   }
-  renderAll(false);
+  if(S.screen==="setup"){
+    S.count=clampCount(typeof S.count==="number"? S.count : DEFAULT_COUNT);
+    const nm=[...DEFAULT_NAMES];
+    if(Array.isArray(S.names)) S.names.forEach((v,i)=>{ if(i<MAX_PLAYERS && typeof v==="string") nm[i]=v; });
+    S.names=nm;
+    if(!S.stack) S.stack=cloneChips(DEFAULT_STACK);
+  }
+  // última red de seguridad: si el estado guardado no es utilizable, empezamos de cero
+  if(!S || (S.screen!=="setup" && S.screen!=="game")) S=setupState();
+  try{ renderAll(false); }
+  catch(err){ S=setupState(); renderAll(false); }
 })();
 </script>
 </body>
