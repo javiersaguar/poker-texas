@@ -242,6 +242,10 @@
   .stepper button:active{background:#14332a}
   .stepper button:disabled{opacity:.32;cursor:not-allowed}
   .stepper .val{min-width:42px;text-align:center;font-weight:700;font-size:15px}
+  .stepper input.val{background:transparent;border:none;color:var(--ink);font-family:inherit;
+    font-weight:700;font-size:15px;text-align:center;width:84px;outline:none;padding:6px 0}
+  .stepper input.val:focus{color:var(--gold)}
+  .blind-warn{font-size:11px;color:#ffc98a;margin-top:6px;line-height:1.45}
   .note{font-size:12px;color:var(--muted-2);line-height:1.5;margin-top:14px}
 
   /* ---------- Modal ---------- */
@@ -273,6 +277,21 @@
     max-width:calc(100vw - 32px);text-align:center}
   .toast.show{opacity:1}
   .hidden{display:none!important}
+
+  /* ---------- Resultados ---------- */
+  .res-list{display:grid;gap:8px;margin-bottom:22px}
+  .res-row{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center;
+    background:var(--panel-2);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:10px 12px}
+  .res-name{font-weight:800;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .res-detail{grid-column:1;font-size:11px;color:var(--muted)}
+  .res-net{grid-row:1 / span 2;grid-column:2;font-weight:800;font-size:17px;white-space:nowrap}
+  .res-net.up{color:#7fe0a0}
+  .res-net.down{color:#ff9a92}
+  .pay-title{font-family:"Fraunces",serif;font-weight:600;font-size:17px;margin:0 0 10px}
+  .pay-list{display:grid;gap:8px}
+  .pay-row{background:rgba(216,169,78,.08);border:1px solid var(--line);border-radius:12px;
+    padding:11px 12px;font-size:14px;line-height:1.5}
+  .pay-row .amt{color:var(--gold);font-weight:800}
 
   /* ---------- Pantalla de inicio ---------- */
   .home{min-height:calc(100vh - 56px);min-height:calc(100dvh - 56px);
@@ -322,7 +341,18 @@ const DEFAULT_NAMES = ["Jugador 1","Jugador 2","Jugador 3","Jugador 4",
                        "Jugador 5","Jugador 6","Jugador 7","Jugador 8"];
 const STREETS = ["Pre-flop","Flop","Turn","River"];
 const MIN_PLAYERS = 2, MAX_PLAYERS = 8;
-const BLINDS = [0,20,50,100,200];   // ciega pequeña; la grande es siempre el doble
+const BLIND_STEP = 10;              // la ciega se ajusta de 10 en 10 céntimos
+const MAX_BLIND  = 5000;            // 50 € de ciega pequeña como tope razonable
+const clampBlind = v => Math.max(0, Math.min(MAX_BLIND, Math.round((+v||0)/BLIND_STEP)*BLIND_STEP));
+/* Con fichas de 0,20/0,50/1/2/5 se puede formar cualquier múltiplo de 10 salvo 0,10 y 0,30 */
+const payableAmount = a => a===0 || (a%10===0 && a!==10 && a!==30);
+const nextPayable = a => { let t=a; while(!payableAmount(t)) t+=10; return t; };
+/* "1,50" o "1.5" -> 150 céntimos */
+function parseEuros(txt){
+  const clean=String(txt).replace(/[^0-9.,]/g,"").replace(",",".");
+  const v=parseFloat(clean);
+  return isNaN(v)? null : Math.round(v*100);
+}
 const DEFAULT_COUNT = 4;
 const clampCount = n => Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n|0));
 
@@ -395,7 +425,8 @@ const canAct = p => inHand(p) && !p.allIn;    // puede realizar una acción
 function freshGame(names, stack, blind){
   return {
     screen:"game",
-    players: names.map(n=>({name:n, chips:cloneChips(stack), folded:false, allIn:false, out:false, roundBet:0})),
+    players: names.map(n=>({name:n, chips:cloneChips(stack), folded:false, allIn:false, out:false,
+                            roundBet:0, invested:value(stack)})),
     stack: cloneChips(stack),      // fichas de salida, para reutilizarlas al reiniciar
     pot: emptyChips(),
     dealer: 0,
@@ -448,6 +479,61 @@ function chipHTML(d, size){
   return `<span class="chip ${c.cls}" ${s}><span class="v">${c.label}</span></span>`;
 }
 
+/* ============ RESULTADOS ============ */
+/* Neto de cada jugador y el mínimo de pagos que salda a todos */
+function settlement(){
+  const nets=S.players.map((p,i)=>({
+    i, name:p.name, invested:p.invested||0, chips:value(p.chips),
+    net: value(p.chips)-(p.invested||0)
+  }));
+  const debe=nets.filter(n=>n.net<0).map(n=>({i:n.i, rem:-n.net})).sort((a,b)=>b.rem-a.rem);
+  const cobra=nets.filter(n=>n.net>0).map(n=>({i:n.i, rem:n.net})).sort((a,b)=>b.rem-a.rem);
+  const tx=[]; let d=0, c=0;
+  while(d<debe.length && c<cobra.length){
+    const amt=Math.min(debe[d].rem, cobra[c].rem);
+    if(amt>0) tx.push({from:debe[d].i, to:cobra[c].i, amount:amt});
+    debe[d].rem-=amt; cobra[c].rem-=amt;
+    if(debe[d].rem===0) d++;
+    if(cobra[c].rem===0) c++;
+  }
+  return {nets, tx};
+}
+function finishGame(){
+  if(value(S.pot)>0){ S.endAfterAward=true; toast("Reparte este bote y verás los resultados"); openWinner(); return; }
+  S.screen="results"; renderAll();
+}
+function renderResults(){
+  showTopbar(true);
+  document.getElementById("topbtns").innerHTML="";
+  document.getElementById("action-root").innerHTML="";
+  const {nets, tx}=settlement();
+  const total=nets.reduce((a,n)=>a+n.invested,0);
+  const rows=nets.slice().sort((a,b)=>b.net-a.net).map(n=>`
+    <div class="res-row">
+      <div class="res-name">${escapeHtml(n.name)}</div>
+      <div class="res-net ${n.net>0?"up":(n.net<0?"down":"")}">${n.net>0?"+":""}${fmt(n.net)}</div>
+      <div class="res-detail">puso ${fmt(n.invested)} · acabó con ${fmt(n.chips)}</div>
+    </div>`).join("");
+  const pays = tx.length
+    ? tx.map(t=>`<div class="pay-row"><b>${escapeHtml(S.players[t.from].name)}</b> paga
+        <span class="amt">${fmt(t.amount)}</span> a <b>${escapeHtml(S.players[t.to].name)}</b></div>`).join("")
+    : `<div class="pay-row" style="color:var(--muted);background:none">Nadie debe nada: acabáis como empezasteis.</div>`;
+  document.getElementById("app").innerHTML = `
+    <div class="card">
+      <h2>Resultados</h2>
+      <p class="sub">${S.hand} ${S.hand===1?"mano jugada":"manos jugadas"} · ${fmt(total)} puestos en total
+        (incluyendo recompras). Esto es lo que gana o pierde cada uno.</p>
+      <div class="res-list">${rows}</div>
+      <h3 class="pay-title">Quién paga a quién</h3>
+      <div class="pay-list">${pays}</div>
+      <div style="margin-top:20px;display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap">
+        <button class="btn" data-action="resume">← Seguir jugando</button>
+        <button class="btn gold" data-action="new-game">Nueva partida</button>
+      </div>
+    </div>`;
+  syncChrome();
+}
+
 /* ============ RENDER: HOME ============ */
 function showTopbar(on){ const t=document.querySelector(".topbar"); if(t) t.classList.toggle("hidden", !on); }
 function renderHome(){
@@ -485,15 +571,19 @@ function renderSetup(){
         </div>
       </div>
       <div class="count-row">
-        <div class="lbl"><b>Ciegas obligatorias</b><span>${S.blind>0
-          ? `Pequeña ${fmt(S.blind)} · Grande ${fmt(S.blind*2)}`
-          : "Nadie paga por entrar"}</span></div>
+        <div class="lbl"><b>Ciega pequeña</b><span>${S.blind>0
+          ? `Grande ${fmt(S.blind*2)} · escríbela o ajusta de 10 en 10`
+          : "Sin ciegas: nadie paga por entrar"}</span></div>
         <div class="stepper">
-          <button data-blind="-1" ${BLINDS.indexOf(S.blind)<=0?"disabled":""} aria-label="Bajar ciega">−</button>
-          <div class="val" id="bval" style="min-width:76px">${S.blind>0? fmt(S.blind) : "Sin"}</div>
-          <button data-blind="1" ${BLINDS.indexOf(S.blind)>=BLINDS.length-1?"disabled":""} aria-label="Subir ciega">+</button>
+          <button data-blind="-1" ${S.blind<=0?"disabled":""} aria-label="Bajar ciega">−</button>
+          <input class="val" id="bval" data-blindinput inputmode="decimal" autocomplete="off"
+                 aria-label="Ciega pequeña en euros" value="${(S.blind/100).toFixed(2).replace(".",",")}">
+          <button data-blind="1" ${S.blind>=MAX_BLIND?"disabled":""} aria-label="Subir ciega">+</button>
         </div>
       </div>
+      ${S.blind>0 && !payableAmount(S.blind)
+        ? `<div class="blind-warn">Con estas fichas no se puede pagar ${fmt(S.blind)} exacto: quien la ponga pagará ${fmt(nextPayable(S.blind))}.</div>`
+        : ""}
       <div class="players-setup">
         ${S.names.slice(0,S.count).map((n,i)=>`
           <div class="psetup">
@@ -610,8 +700,12 @@ function renderAction(){
           <div class="who"><span class="pin"></span>🏆 ${winner?escapeHtml(winner.name):"—"} gana la partida</div>
           <div class="status">Con <b>${winner?fmt(value(winner.chips)):"—"}</b></div>
         </div>
-        <div class="btns" style="grid-template-columns:1fr">
-          <button class="btn gold primary" data-action="new-game">Nueva partida ↻</button>
+        <div class="btns" style="grid-template-columns:1fr 1fr">
+          <button class="btn gold primary" data-action="finish">Ver resultados →</button>
+          <button class="btn primary" data-action="rebuy">Recomprar y seguir</button>
+        </div>
+        <div class="row-min" style="margin:8px 0 0">
+          <button class="btn sm" data-action="new-game">Nueva partida</button>
         </div>
       </div></div>`;
     return;
@@ -634,6 +728,10 @@ function renderAction(){
             ? `<button class="btn primary" data-action="next-round">Ver ${nextName} →</button>`
             : `<button class="btn primary" disabled>${isRiver?"River jugado":"Sin más calles"}</button>`}
           <button class="btn gold primary" data-action="end-hand">${isRiver?"Showdown · repartir →":"Repartir bote →"}</button>
+        </div>
+        <div class="row-min" style="margin:8px 0 0">
+          ${S.players.some((p,i)=>canRebuy(i))? `<button class="btn sm" data-action="rebuy">Recomprar fichas</button>`:""}
+          <button class="btn sm" data-action="finish">Finalizar partida</button>
         </div>
       </div></div>`;
     return;
@@ -873,6 +971,7 @@ function awardTo(indices){
     indices.forEach((pi,k)=>{ DENOMS.forEach(d=>{ S.players[pi].chips[d]+=give[k][d]; }); });
   }
   S.pot=emptyChips();
+  if(S.endAfterAward){ S.endAfterAward=false; S.pendingNewHand=true; S.screen="results"; closeModal(); renderAll(); return; }
   newHand();
 }
 function newHand(){
@@ -944,6 +1043,52 @@ function beginHand(){
   S.turn = (first===-1||first==null)? S.dealer : first;
 
   if(roundDone()==="closed") S.roundClosed=true;
+}
+
+/* ============ RECOMPRA ============ */
+/* Puede recomprar quien se ha quedado sin fichas o va muy por debajo del resto */
+function canRebuy(i){
+  const mine=value(S.players[i].chips);
+  if(mine===0) return true;
+  const others=S.players.filter((q,j)=>j!==i && value(q.chips)>0).map(q=>value(q.chips));
+  if(!others.length) return false;
+  const avg=others.reduce((a,b)=>a+b,0)/others.length;
+  return mine < avg*0.5;
+}
+function rebuyStack(){ return cloneChips(S.stack || DEFAULT_STACK); }
+function openRebuy(){
+  const add=rebuyStack();
+  const list=S.players.map((p,i)=>({p,i})).filter(o=>canRebuy(o.i));
+  document.getElementById("modal-root").innerHTML=`
+    <div class="overlay" data-action="modal-bg">
+      <div class="modal" data-stop>
+        <h3>Recomprar fichas</h3>
+        <p>Quien se queda sin fichas —o muy por debajo del resto— puede volver a entrar por
+           <b style="color:var(--gold)">${fmt(value(add))}</b>. La recompra se suma a lo que ha puesto
+           y cuenta en las cuentas finales.</p>
+        <div class="break-list">
+          ${list.length? list.map(o=>`
+            <div class="break-row">
+              <div class="txt"><b>${escapeHtml(o.p.name)}</b>Tiene ${fmt(value(o.p.chips))} · lleva puesto ${fmt(o.p.invested||0)}</div>
+              <button class="btn gold sm" data-action="do-rebuy" data-i="${o.i}">Recomprar</button>
+            </div>`).join("")
+          : `<p style="color:var(--muted)">Ahora mismo nadie necesita recomprar: todos andan parejos de fichas.</p>`}
+        </div>
+        <div class="modal-btns"><button class="btn" data-action="modal-close">Cerrar</button></div>
+      </div>
+    </div>`;
+}
+function doRebuy(i){
+  const p=S.players[i];
+  const add=rebuyStack();
+  DENOMS.forEach(d=>{ p.chips[d]+=add[d]; });
+  p.invested=(p.invested||0)+value(add);
+  p.out=false;
+  closeModal();
+  const conFichas=S.players.filter(q=>value(q.chips)>0).length;
+  if(S.over && conFichas>1){ S.over=false; newHand(); }
+  else renderAll();
+  toast(`${p.name} recompra ${fmt(value(add))}`);
 }
 
 /* ============ MODALS ============ */
@@ -1051,7 +1196,7 @@ function doNewGame(){
     st.count=clampCount(S.players.length);
     S.players.forEach((p,i)=>{ if(i<MAX_PLAYERS && p && p.name) st.names[i]=p.name; });
     if(S.stack) st.stack=cloneChips(S.stack);
-    if(BLINDS.includes(S.blind)) st.blind=S.blind;
+    if(typeof S.blind==="number") st.blind=clampBlind(S.blind);
   }
   S=st; closeModal(); renderAll();
 }
@@ -1104,6 +1249,7 @@ function escapeHtml(s){ return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<"
 function renderAll(persist=true){
   if(S.screen==="home") renderHome();
   else if(S.screen==="setup") renderSetup();
+  else if(S.screen==="results") renderResults();
   else renderGame();
   if(persist) save();
 }
@@ -1117,6 +1263,13 @@ document.addEventListener("click",e=>{
     case "play": S.screen="setup"; renderAll(); break;
     case "start": startGame(); break;
     case "autocall": autoCall(); break;
+    case "rebuy": openRebuy(); break;
+    case "do-rebuy": doRebuy(+el.dataset.i); break;
+    case "finish": finishGame(); break;
+    case "resume":
+      S.screen="game";
+      if(S.pendingNewHand){ S.pendingNewHand=false; newHand(); } else renderAll();
+      break;
     case "add": addChip(+el.dataset.d); break;
     case "undo": undo(); break;
     case "confirm": confirmBet(); break;
@@ -1126,7 +1279,7 @@ document.addEventListener("click",e=>{
     case "change": openChange(); break;
     case "do-break": doBreak(+el.dataset.k); break;
     case "next-round": nextRound(); break;
-    case "end-hand": openWinner(); break;
+    case "end-hand": S.endAfterAward=false; openWinner(); break;
     case "toggle-win": toggleWin(+el.dataset.i); break;
     case "do-award": doAward(); break;
     case "new-game": confirmNewGame(); break;
@@ -1139,6 +1292,18 @@ document.addEventListener("click",e=>{
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && document.getElementById("modal-root").innerHTML!==""){ closeModal(); }
 });
+// setup: ciega escrita a mano (se aplica al salir del campo o con Enter)
+document.addEventListener("change",e=>{
+  const el=e.target.closest("[data-blindinput]");
+  if(!el || S.screen!=="setup") return;
+  const cents=parseEuros(el.value);
+  S.blind = cents===null? S.blind : clampBlind(cents);
+  renderAll();
+});
+document.addEventListener("keydown",e=>{
+  const el=e.target.closest("[data-blindinput]");
+  if(el && e.key==="Enter"){ e.preventDefault(); el.blur(); }
+});
 // setup: nombres + steppers
 document.addEventListener("input",e=>{
   const n=e.target.closest("[data-name]");
@@ -1148,10 +1313,9 @@ document.addEventListener("input",e=>{
 document.addEventListener("click",e=>{
   const c=e.target.closest("[data-blind]");
   if(!c || S.screen!=="setup") return;
-  const i=BLINDS.indexOf(S.blind);
-  const ni=Math.max(0,Math.min(BLINDS.length-1,(i<0?0:i)+(+c.dataset.blind)));
-  if(BLINDS[ni]===S.blind) return;
-  S.blind=BLINDS[ni];
+  const next=clampBlind(S.blind + (+c.dataset.blind)*BLIND_STEP);
+  if(next===S.blind) return;
+  S.blind=next;
   renderAll();
 });
 // setup: número de jugadores
@@ -1179,7 +1343,7 @@ function startGame(){
   const count=clampCount(S.count);
   const names=S.names.slice(0,count).map((n,i)=> (n&&n.trim())? n.trim() : DEFAULT_NAMES[i]);
   if(value(S.stack)===0){ toast("Dales al menos algunas fichas"); return; }
-  const blind=BLINDS.includes(S.blind)? S.blind : 0;
+  const blind=clampBlind(S.blind);
   if(blind*2 > value(S.stack)){ toast("La ciega grande no cabe en las fichas de salida"); return; }
   S=freshGame(names, S.stack, blind);
   beginHand();
@@ -1191,7 +1355,7 @@ function startGame(){
   const saved=await load();
   S = saved || homeState();
   // saneado por si el guardado es de otra versión
-  if(S.screen==="game"){
+  if(S.screen==="game" || S.screen==="results"){
     if(!Array.isArray(S.players) || S.players.length<MIN_PLAYERS || S.players.length>MAX_PLAYERS){ S=setupState(); }
     else {
       if(typeof S.street!=="number") S.street=0;
@@ -1199,7 +1363,8 @@ function startGame(){
       if(!S.pot) S.pot=emptyChips();
       if(!S.staged){ S.staged=emptyChips(); S.stagedOrder=[]; }
       if(!Array.isArray(S.acted)) S.acted=[];
-      S.players.forEach(p=>{ if(typeof p.out!=="boolean") p.out=false; });
+      S.players.forEach(p=>{ if(typeof p.out!=="boolean") p.out=false;
+                             if(typeof p.invested!=="number") p.invested=value(p.chips); });
       const n=S.players.length;
       if(!(S.dealer>=0 && S.dealer<n)) S.dealer=0;
       if(!(S.turn>=0 && S.turn<n)) S.turn=0;
@@ -1214,10 +1379,10 @@ function startGame(){
     if(Array.isArray(S.names)) S.names.forEach((v,i)=>{ if(i<MAX_PLAYERS && typeof v==="string") nm[i]=v; });
     S.names=nm;
     if(!S.stack) S.stack=cloneChips(DEFAULT_STACK);
-    if(!BLINDS.includes(S.blind)) S.blind=20;
+    S.blind=clampBlind(typeof S.blind==="number"? S.blind : 20);
   }
   // última red de seguridad: si el estado guardado no es utilizable, empezamos de cero
-  if(!S || ["home","setup","game"].indexOf(S.screen)===-1) S=homeState();
+  if(!S || ["home","setup","game","results"].indexOf(S.screen)===-1) S=homeState();
   try{ renderAll(false); }
   catch(err){ S=homeState(); renderAll(false); }
 })();
