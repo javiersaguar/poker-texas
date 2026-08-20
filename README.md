@@ -21,9 +21,34 @@ App web para **contar fichas y apuestas** jugando al póker **Texas Hold'em** co
 - Pantalla de inicio con opción de **continuar la última partida** (se guarda sola en el navegador).
 - Diseño responsive pensado para **móvil e iPad**; la partida se guarda sola en el navegador.
 
+## Icono en la pantalla de inicio (iPhone / iPad)
+
+La app trae su propio icono —una ficha con una pica sobre el tapete verde— para cuando se añade a la pantalla de inicio:
+
+1. Abre la web en **Safari** (en iOS el icono solo lo coge Safari, no Chrome).
+2. Botón **Compartir** → **Añadir a pantalla de inicio**.
+3. Aparece el icono y el nombre **Póker**; toca **Añadir**.
+
+Al abrirla desde ahí se lanza a pantalla completa, sin la barra de Safari.
+
+> iOS guarda el icono en el momento de añadirla. Si cambias el icono, hay que **borrar el acceso directo y volver a añadirlo** para ver el nuevo.
+
+Los archivos están en `icons/` y se generan a partir de `icons/icon.svg`:
+
+```bash
+python3 icons/build-icons.py   # necesita Pillow y Chromium instalados
+```
+
+| Archivo | Para qué |
+| --- | --- |
+| `icons/apple-touch-icon-180.png` | icono de la pantalla de inicio en iOS/iPadOS |
+| `icons/icon-192.png`, `icons/icon-512.png` | Android y escritorio (vía `manifest.webmanifest`) |
+| `icons/icon-maskable-512.png` | Android, con margen para que el sistema lo recorte |
+| `icons/favicon-32.png`, `icons/icon.svg` | pestaña del navegador |
+
 ## Uso
 
-Es una app estática de un solo archivo (`index.html`). Basta con abrir el archivo en el navegador, o servirlo:
+Es una app estática: toda la lógica vive en `index.html` (los iconos y el `manifest.webmanifest` solo hacen falta para instalarla en la pantalla de inicio). Basta con abrir el archivo en el navegador, o servirlo:
 
 ```bash
 # opción rápida con Python

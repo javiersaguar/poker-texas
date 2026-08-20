@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="felt" cx="50%" cy="8%" r="95%">
+      <stop offset="0%" stop-color="#1a5643"/>
+      <stop offset="55%" stop-color="#123a2e"/>
+      <stop offset="100%" stop-color="#0a1611"/>
+    </radialGradient>
+    <linearGradient id="chip" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1d1d22"/>
+      <stop offset="100%" stop-color="#0d0d10"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0cd7a"/>
+      <stop offset="45%" stop-color="#d8a94e"/>
+      <stop offset="100%" stop-color="#a87f31"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" fill="url(#felt)"/>
+  <circle cx="256.0" cy="256.0" r="176.0" fill="url(#chip)"/>
+  <circle cx="256.0" cy="256.0" r="176.0" fill="none" stroke="url(#gold)" stroke-width="10.0"/>
+  <g transform="translate(256.0 256.0) scale(1.0000) translate(-256.0 -256.0)">
+    <rect x="-22" y="-15" width="44" height="30" rx="9" fill="url(#gold)" transform="rotate(90.00 256.0 256.0) translate(256.00 100.00)"/>
+    <rect x="-22" y="-15" width="44" height="30" rx="9" fill="url(#gold)" transform="rotate(150.00 256.0 256.0) translate(256.00 100.00)"/>
+    <rect x="-22" y="-15" width="44" height="30" rx="9" fill="url(#gold)" transform="rotate(210.00 256.0 256.0) translate(256.00 100.00)"/>
+    <rect x="-22" y="-15" width="44" height="30" rx="9" fill="url(#gold)" transform="rotate(270.00 256.0 256.0) translate(256.00 100.00)"/>
+    <rect x="-22" y="-15" width="44" height="30" rx="9" fill="url(#gold)" transform="rotate(330.00 256.0 256.0) translate(256.00 100.00)"/>
+    <rect x="-22" y="-15" width="44" height="30" rx="9" fill="url(#gold)" transform="rotate(390.00 256.0 256.0) translate(256.00 100.00)"/>
+  </g>
+  <circle cx="256.0" cy="256.0" r="124.0" fill="#123a2e" stroke="url(#gold)" stroke-width="5.0"/>
+  <g transform="translate(162.25,162.25) scale(1.8750)"><path d="M50 10 C50 10 84 38 84 58 C84 71 74 78.5 65 78.5 C59 78.5 54 75.5 51 71.5 C51 79.5 55 86.5 61 90 H39 C45 86.5 49 79.5 49 71.5 C46 75.5 41 78.5 35 78.5 C26 78.5 16 71 16 58 C16 38 50 10 50 10 Z" fill="url(#gold)"/></g>
+</svg>
